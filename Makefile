@@ -8,17 +8,15 @@
 ## Last update Sun Jan 18 22:59:28 2015 Vincent Guinaudeau
 ##
 
-NAME	= buddabrot
+NAME	= buddhabrot
 
-SRC		= main.c \
-		  util.c \
-		  io.c \
+SRC		= src/main.c
 
 OBJ		= $(SRC:.c=.o)
 
 CC		= clang
 
-CFLAGS	= -Wall -Wextra
+CFLAGS	= -Iinclude/ -Wall -Wextra -O3
 
 RM		= rm -f
 
