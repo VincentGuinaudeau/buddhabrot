@@ -1,11 +1,6 @@
 #ifndef VIEW_H_
 #define VIEW_H_
 
-#include "main.h"
-#include "math.h"
-
-#define PGM_MAX_VALUE 255
-
 typedef struct s_view
 {
 	int		x;
@@ -18,6 +13,11 @@ typedef struct s_view
 	int		max_value;
 	int		data[];
 }	view;
+
+#include "main.h"
+#include "math.h"
+
+#define PGM_MAX_VALUE 255
 
 void set_view_position(view *view, double scale, double x, double y);
 view *create_view(int x, int y);

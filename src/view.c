@@ -71,6 +71,7 @@ err write_view_to_disk(view *view, char *path)
 		{
 			progress = buff;
 			printf("\r%d.%d%d%%", progress / 100, progress / 10 % 10, progress % 10);
+			fflush(stdout);
 		}
 	}
 	printf("\n");

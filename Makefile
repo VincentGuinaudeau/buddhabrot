@@ -20,12 +20,14 @@ CC		= clang
 
 CFLAGS	= -Iinclude/ -Wall -Wextra -O3
 
+LDFLAGS = -lpthread
+
 RM		= rm -f
 
 MAKE	= make --no-print-directory
 
 $(NAME):	$(OBJ)
-	$(CC) $(OBJ) -o $(NAME) $(CFLAGS)
+	$(CC) $(OBJ) -o $(NAME) $(CFLAGS) $(LDFLAGS)
 
 all:	$(NAME)
 

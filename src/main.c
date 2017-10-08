@@ -4,11 +4,14 @@
 #include <errno.h>
 #include <string.h>
 #include <time.h>
+#include <pthread.h>
+#include <sys/sysinfo.h>
+
 #include "main.h"
 #include "math.h"
 #include "view.h"
 
-void init_option(t_option *option)
+void init_option(option *option)
 {
 	option->width = -1;
 	option->height = -1;
@@ -20,7 +23,7 @@ void init_option(t_option *option)
 	option->y_offset = 0;
 }
 
-void default_option(t_option *option)
+void default_option(option *option)
 {
 	if (option->width == -1)
 		option->width = 1000;
@@ -48,7 +51,7 @@ err parse_number(char* str, int *number)
 	return (OK);
 }
 
-err parse_args(t_option *option, int argc, char **argv)
+err parse_args(option *option, int argc, char **argv)
 {
 	int opt;
 	err err;
@@ -58,19 +61,19 @@ err parse_args(t_option *option, int argc, char **argv)
 		switch (opt)
 		{
 			case 'w':
-				err = parse_number(optarg, &(option->width));
+				err = parse_number(optarg, &option->width);
 				break;
 			case 'h':
-				err = parse_number(optarg, &(option->height));
+				err = parse_number(optarg, &option->height);
 				break;
 			case 's':
-				err = parse_number(optarg, &(option->sample_size));
+				err = parse_number(optarg, &option->sample_size);
 				break;
 			case 'm':
-				err = parse_number(optarg, &(option->min));
+				err = parse_number(optarg, &option->min);
 				break;
 			case 'M':
-				err = parse_number(optarg, &(option->max));
+				err = parse_number(optarg, &option->max);
 				break;
 			default: /* '?' */
 				fprintf(stderr, "Usage: %s [-w nbr] [-h nbr] [-s nbr] [-m nbr] [-M nbr]\n", argv[0]);
@@ -86,55 +89,83 @@ err parse_args(t_option *option, int argc, char **argv)
 	return (OK);
 }
 
+void *thread_main(data *data)
+{
+    complex c;
+	int nbr;
+
+	srand (time(NULL));
+	while (data->found < data->option.sample_size)
+	{
+		c.r = (double)rand() / RAND_MAX * 4.0 - 2.0;
+		c.i = (double)rand() / RAND_MAX * 4.0 - 2.0;
+		nbr = number_of_step_to_escape(&c, data->option.max);
+		if (nbr >= data->option.min && nbr <= data->option.max)
+		{
+			pthread_mutex_lock(&data->mut);
+			add_point_to_view(data->view, &c);
+			data->found++;
+			nbr = (long)data->found * 10000 / data->option.sample_size;
+			if (data->progress < nbr)
+			{
+				data->progress = nbr;
+				printf("\r%d.%d%d%%", data->progress / 100, data->progress / 10 % 10, data->progress % 10);
+				fflush(stdout);
+			}
+			pthread_mutex_unlock(&data->mut);
+		}
+	}
+	return (EXIT_SUCCESS);
+}
+
 int main(int argc, char** argv)
 {
-	t_option option;
+	data data;
 	char *path = "./test.pgm";
 
-	if (parse_args(&option, argc, argv) == KO)
+	if (parse_args(&(data.option), argc, argv) == KO)
 		return (EXIT_FAILURE);
 
 	printf("allocating memory.\n");
-	view *view = create_view(option.width, option.height);
-	if (view == NULL)
+	data.view = create_view(data.option.width, data.option.height);
+	if (data.view == NULL)
 	{
 		printf("Can't allocate memory for the view. Abort\n");
 		return (EXIT_FAILURE);
 	}
 
-    complex c;
-	int found = 0;
-	int progress = 0;
-	int nbr;
-
-    srand (time(NULL));
-	printf("staring loop. sample_size : %d points\n", option.sample_size);
-	while (found < option.sample_size)
+	pthread_mutex_init(&data.mut, NULL);
+	int threads = get_nprocs();
+	data.threads = malloc(sizeof(pthread_t) * threads);
+	if (data.threads == NULL)
 	{
-		c.r = (double)rand() / RAND_MAX * 4.0 - 2.0;
-		c.i = (double)rand() / RAND_MAX * 4.0 - 2.0;
-		nbr = number_of_step_to_escape(&c, option.max);
-		if (nbr >= option.min && nbr <= option.max)
-		{
-			add_point_to_view(view, &c);
-			found++;
-			nbr = (long)found * 10000 / option.sample_size;
-			if (progress < nbr)
-			{
-				progress = nbr;
-				printf("\r%d.%d%d%%", progress / 100, progress / 10 % 10, progress % 10);
-			}
-		}
+		printf("Can't allocate memory for the threads. Abort\n");
+		return (EXIT_FAILURE);
+	}
+
+	printf("retreiving points.\n");
+	printf("sample size : %d points.\n", data.option.sample_size);
+	printf("number of threads : %d.\n", threads);
+	printf("precision of random : %d discret values betwen -2 and 2.\n", RAND_MAX);
+
+	for (int i = 0; i < threads; i++)
+	{
+		pthread_create(&data.threads[i], NULL, (void*(*)(void*))thread_main, &data);
+	}
+	for (int i = 0; i < threads; i++)
+	{
+		pthread_join(data.threads[i], NULL);
 	}
 
 	printf("\nwriting to disk\n");
-	err res = write_view_to_disk(view, path);
+	err res = write_view_to_disk(data.view, path);
 	if (res == KO)
 	{
 		printf("Can't open file '%s' : %s. Abort.\n", path, strerror(errno));
 		return (EXIT_FAILURE);
 	}
-	free(view);
+	free(data.view);
+	free(data.threads);
 
 	printf("done\n");
 	return (EXIT_SUCCESS);
