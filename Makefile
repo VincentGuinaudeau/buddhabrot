@@ -10,7 +10,9 @@
 
 NAME	= buddhabrot
 
-SRC		= src/main.c
+SRC		= src/main.c \
+		  src/math.c \
+		  src/view.c
 
 OBJ		= $(SRC:.c=.o)
 
