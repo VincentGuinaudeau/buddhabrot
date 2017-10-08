@@ -17,7 +17,14 @@ typedef struct s_view
 #include "main.h"
 #include "math.h"
 
-#define PGM_MAX_VALUE 255
+#define WRITE_BUFFER_SIZE	4096
+#define PGM_MAX_VALUE		255
+
+#if PGM_MAX_VALUE > 255
+	#define PIXEL_SIZE 2
+#else
+	#define PIXEL_SIZE 1
+#endif
 
 void set_view_position(view *view, double scale, double x, double y);
 view *create_view(int x, int y);

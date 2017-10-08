@@ -5,6 +5,7 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <string.h>
 #include "view.h"
 
 double calc_squared_view_radius(double scale, int x, int y)
@@ -49,23 +50,33 @@ view *create_view(int x, int y)
 
 err write_view_to_disk(view *view, char *path)
 {
+	char buffer[WRITE_BUFFER_SIZE];
+	const int max_pix = WRITE_BUFFER_SIZE / PIXEL_SIZE;
 	int fd = open(path, O_CREAT | O_RDWR);
 	int size = view->x * view->y - 1;
 	int progress = 0;
+	int buffer_index;
 	int buff;
 	int i;
 
 	if (fd == -1)
 		return KO;
-	dprintf(fd, "P5 %d %d %d\n", view->x, view->y, PGM_MAX_VALUE);
+	sprintf(buffer, "P5 %d %d %d\n", view->x, view->y, PGM_MAX_VALUE);
+	write(fd, buffer, strlen(buffer));
 	for (i = 0; i <= size; i++)
 	{
 		buff = view->data[i] * PGM_MAX_VALUE / view->max_value;
-		#if PGM_MAX_VALUE > 255
-			dprintf(fd, "%c%c", buff >> 8, buff);
+		buffer_index = (i % max_pix) * PIXEL_SIZE;
+		#if PIXEL_SIZE >= 1
+			buffer[buffer_index] = buff / 8;
+			buffer[buffer_index + 1] = buff % 8;
 		#else
-			dprintf(fd, "%c", buff);
+			buffer[buffer_index] = buff % 8;
 		#endif
+		if ((i + 1) % max_pix == 0)
+		{
+			write(fd, buffer, max_pix * PIXEL_SIZE);
+		}
 		buff = (long)i * 10000 / size;
 		if (progress < buff)
 		{
