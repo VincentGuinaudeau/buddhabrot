@@ -93,8 +93,17 @@ void *thread_main(data *data)
 {
     complex c;
 	int nbr;
+	int *buffer = malloc(sizeof(int) * (data->option.max + 1));
+	if (buffer == NULL)
+	{
+		printf("Can't allocate memory for a buffer. Abort thread.");
+		return ((void*)EXIT_FAILURE);
+	}
 
-	srand (time(NULL));
+	pthread_mutex_lock(&data->mut);
+	srand (time(NULL) + data->random_seed);
+	data->random_seed += 10;
+	pthread_mutex_unlock(&data->mut);
 	while (data->found < data->option.sample_size)
 	{
 		c.r = (double)rand() / RAND_MAX * 4.0 - 2.0;
@@ -102,8 +111,9 @@ void *thread_main(data *data)
 		nbr = number_of_step_to_escape(&c, data->option.max);
 		if (nbr >= data->option.min && nbr <= data->option.max)
 		{
+			prepare_point_for_view(data->view, buffer, &c);
 			pthread_mutex_lock(&data->mut);
-			add_point_to_view(data->view, &c);
+			add_computed_point_to_view(data->view, buffer);
 			data->found++;
 			nbr = (long)data->found * 10000 / data->option.sample_size;
 			if (data->progress < nbr)
@@ -115,10 +125,11 @@ void *thread_main(data *data)
 			pthread_mutex_unlock(&data->mut);
 		}
 	}
+	free(buffer);
 	return (EXIT_SUCCESS);
 }
 
-int main(int argc, char** argv)
+int main(int argc, char **argv)
 {
 	data data;
 	char *path = "./test.pgm";
@@ -134,6 +145,8 @@ int main(int argc, char** argv)
 		return (EXIT_FAILURE);
 	}
 
+	data.random_seed = 0;
+	data.found = 0;
 	pthread_mutex_init(&data.mut, NULL);
 	int threads = get_nprocs();
 	data.threads = malloc(sizeof(pthread_t) * threads);
@@ -152,9 +165,10 @@ int main(int argc, char** argv)
 	{
 		pthread_create(&data.threads[i], NULL, (void*(*)(void*))thread_main, &data);
 	}
+	void *retval;
 	for (int i = 0; i < threads; i++)
 	{
-		pthread_join(data.threads[i], NULL);
+		pthread_join(data.threads[i], &retval);
 	}
 
 	printf("\nwriting to disk\n");

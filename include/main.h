@@ -31,6 +31,7 @@ typedef struct s_data
 	pthread_t		*threads;
 	int				found;
 	int				progress;
+	int				random_seed;
 } data;
 
 #endif /* MAIN_H_ */
