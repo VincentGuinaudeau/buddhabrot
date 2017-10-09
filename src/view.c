@@ -106,6 +106,7 @@ void add_point_to_view(view *view, complex *point)
 	complex walker = {point->r, point->i};
 	int x;
 	int y;
+	int index;
 
 	while (distance_squared(walker.r - view->offset_x,
 		                    walker.i - view->offset_y)
@@ -118,9 +119,10 @@ void add_point_to_view(view *view, complex *point)
 		y = (walker.i - view->offset_y) / view->step + view->y / 2;
 		if (x >= 0 && x < view->x && y >= 0 && y < view->y)
 		{
-			view->data[y * view->x + x]++;
-			if (view->max_value < view->data[y * view->x + x])
-				view->max_value = view->data[y * view->x + x];
+			index = y * view->x + x;
+			++view->data[index];
+			if (view->max_value < view->data[index])
+				view->max_value = view->data[index];
 		}
 		calc_step(&walker, point);
 	}

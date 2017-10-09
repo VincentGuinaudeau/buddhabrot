@@ -1,11 +1,11 @@
 #include "math.h"
 
-double distance_squared(double x, double y)
+inline double distance_squared(double x, double y)
 {
 	return x * x + y * y;
 }
 
-void calc_step(complex *walker, complex *start_point)
+inline void calc_step(complex *walker, complex *start_point)
 {
 	double	buff;
 
@@ -27,7 +27,7 @@ int number_of_step_to_escape(complex *point, int max)
 	while (distance_squared(walker.r, walker.i) <= 4 && i <= max)
 	{
 		calc_step(&walker, point);
-		i++;
+		++i;
 	}
 	return i;
 }
