@@ -26,11 +26,11 @@ This will generate a file named `test.pgm` on the current active directory.
 
 ### Options
 
- *`-w` Width : the width of the image
- *`-h` Height : the height of the image
- *`-s` Sample size : the number of point to find
- *`-m` Minimum : the minimum of step for a point to qualify
- *`-m` Maximum : the maximum of step for a point to qualify
+ * `-w` Width : the width of the image
+ * `-h` Height : the height of the image
+ * `-s` Sample size : the number of point to find
+ * `-m` Minimum : the minimum of step for a point to qualify
+ * `-M` Maximum : the maximum of step for a point to qualify
 
 Example for a 4k image (width and height inverted to rotate the image afterward)
 
