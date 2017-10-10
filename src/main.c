@@ -100,10 +100,6 @@ void *thread_main(data *data)
 		return ((void*)EXIT_FAILURE);
 	}
 
-	pthread_mutex_lock(&data->mut);
-	srand (time(NULL) + data->random_seed);
-	data->random_seed += 10;
-	pthread_mutex_unlock(&data->mut);
 	while (data->found < data->option.sample_size)
 	{
 		c.r = (double)rand() / RAND_MAX * 4.0 - 2.0;
@@ -114,7 +110,7 @@ void *thread_main(data *data)
 			prepare_point_for_view(data->view, buffer, &c);
 			pthread_mutex_lock(&data->mut);
 			add_computed_point_to_view(data->view, buffer);
-			data->found++;
+			++data->found;
 			nbr = (long)data->found * 10000 / data->option.sample_size;
 			if (data->progress < nbr)
 			{
@@ -132,6 +128,10 @@ void *thread_main(data *data)
 int main(int argc, char **argv)
 {
 	data data;
+	data.random_seed = 0;
+	data.found = 0;
+	pthread_mutex_init(&data.mut, NULL);
+	int threads = get_nprocs();
 	char *path = "./test.pgm";
 
 	if (parse_args(&(data.option), argc, argv) == KO)
@@ -139,16 +139,13 @@ int main(int argc, char **argv)
 
 	printf("allocating memory.\n");
 	data.view = create_view(data.option.width, data.option.height);
+	// set_view_position(data.view, 1.5, -0.5, 0);
 	if (data.view == NULL)
 	{
 		printf("Can't allocate memory for the view. Abort\n");
 		return (EXIT_FAILURE);
 	}
 
-	data.random_seed = 0;
-	data.found = 0;
-	pthread_mutex_init(&data.mut, NULL);
-	int threads = get_nprocs();
 	data.threads = malloc(sizeof(pthread_t) * threads);
 	if (data.threads == NULL)
 	{
@@ -161,14 +158,14 @@ int main(int argc, char **argv)
 	printf("number of threads : %d.\n", threads);
 	printf("precision of random : %d discret values betwen -2 and 2.\n", RAND_MAX);
 
+	srand(time(NULL));
 	for (int i = 0; i < threads; i++)
 	{
 		pthread_create(&data.threads[i], NULL, (void*(*)(void*))thread_main, &data);
 	}
-	void *retval;
 	for (int i = 0; i < threads; i++)
 	{
-		pthread_join(data.threads[i], &retval);
+		pthread_join(data.threads[i], NULL);
 	}
 
 	printf("\nwriting to disk\n");
