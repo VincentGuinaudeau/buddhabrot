@@ -26,20 +26,28 @@ This will generate a file named `test.pgm` on the current active directory.
 
 ### Options
 
- * `-w` Width : the width of the image
- * `-h` Height : the height of the image
- * `-s` Sample size : the number of point to find
- * `-m` Minimum : the minimum of step for a point to qualify
- * `-M` Maximum : the maximum of step for a point to qualify
+ * `-w` Width : the width of the image (default 1000)
+ * `-h` Height : the height of the image (default 1000)
+ * `-s` Sample size : the number of point to find (default 200000)
+ * `-m` Minimum : the minimum number of steps a point need to qualify(default 10)
+ * `-M` Maximum : the maximum number of steps a point need to qualify(default 20)
 
 Example for a 4k image (width and height inverted to rotate the image afterward)
 
 ```sh
-$ ./buddhabrot -w 4320 -h 7680
+$ ./buddhabrot -w 4320 -h 7680 -s 2000000 -m 30 -M 100
 ```
 
 ## Algorithm
 
 The program launch one thread per actual thread available on the computer.
 
-For now, the program look at random point until it found a point that escape the circle of radius 2 between `-m` and `-M` steps.
+For now, the program look at random point until it find `-s` points that escape the circle of radius 2 between `-m` and `-M` steps.
+
+## Coming soon
+
+ * more parameters
+ * render of a specific part
+ * fasters algorithms (ideas welcome)
+ * save and load of intermediate steps (useful to make several render with the same points)
+ * blending renders to generate those colorufull images (aka Nebulabrot).
