@@ -57,3 +57,6 @@ buddhabrot
 # Images
 **.pgm
 **.png
+
+# VScode project folder
+.vscode/**

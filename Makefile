@@ -18,7 +18,7 @@ OBJ		= $(SRC:.c=.o)
 
 CC		= clang
 
-CFLAGS	= -Iinclude/ -Wall -Wextra -O3
+CFLAGS	= -Iinclude/ -Wall -Wextra -g3
 
 LDFLAGS = -lpthread
 

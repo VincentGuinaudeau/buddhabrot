@@ -109,20 +109,40 @@ void *thread_main(data *data)
 		{
 			prepare_point_for_view(data->view, buffer, &c);
 			pthread_mutex_lock(&data->mut);
-			add_computed_point_to_view(data->view, buffer);
-			++data->found;
-			nbr = (long)data->found * 10000 / data->option.sample_size;
-			if (data->progress < nbr)
-			{
-				data->progress = nbr;
-				printf("\r%d.%d%d%%", data->progress / 100, data->progress / 10 % 10, data->progress % 10);
-				fflush(stdout);
-			}
+				add_computed_point_to_view(data->view, buffer);
+				++data->found;
+				nbr = (long)data->found * 10000 / data->option.sample_size;
+				if (data->progress < nbr)
+				{
+					data->progress = nbr;
+					printf("\r%d.%d%d%%", data->progress / 100, data->progress / 10 % 10, data->progress % 10);
+					fflush(stdout);
+				}
 			pthread_mutex_unlock(&data->mut);
 		}
 	}
 	free(buffer);
 	return (EXIT_SUCCESS);
+}
+
+err launch_threads(data *d, int threads, void*(*func)(void*))
+{
+	d->threads = malloc(sizeof(pthread_t) * threads);
+	if (d->threads == NULL)
+	{
+		printf("Can't allocate memory for the threads. Abort\n");
+		return (KO);
+	}
+
+	for (int i = 0; i < threads; i++)
+	{
+		pthread_create(d->threads + i, NULL, func, d);
+	}
+	for (int i = 0; i < threads; i++)
+	{
+		pthread_join(d->threads[i], NULL);
+	}
+	return (OK);
 }
 
 int main(int argc, char **argv)
@@ -137,19 +157,12 @@ int main(int argc, char **argv)
 	if (parse_args(&(data.option), argc, argv) == KO)
 		return (EXIT_FAILURE);
 
-	printf("allocating memory.\n");
+	printf("allocating memory.\n");		
 	data.view = create_view(data.option.width, data.option.height);
 	// set_view_position(data.view, 1.5, -0.5, 0);
 	if (data.view == NULL)
 	{
 		printf("Can't allocate memory for the view. Abort\n");
-		return (EXIT_FAILURE);
-	}
-
-	data.threads = malloc(sizeof(pthread_t) * threads);
-	if (data.threads == NULL)
-	{
-		printf("Can't allocate memory for the threads. Abort\n");
 		return (EXIT_FAILURE);
 	}
 
@@ -159,14 +172,8 @@ int main(int argc, char **argv)
 	printf("precision of random : %d discret values betwen -2 and 2.\n", RAND_MAX);
 
 	srand(time(NULL));
-	for (int i = 0; i < threads; i++)
-	{
-		pthread_create(&data.threads[i], NULL, (void*(*)(void*))thread_main, &data);
-	}
-	for (int i = 0; i < threads; i++)
-	{
-		pthread_join(data.threads[i], NULL);
-	}
+
+	launch_threads(&data, threads, (void *(*)(void *))thread_main);
 
 	printf("\nwriting to disk\n");
 	err res = write_view_to_disk(data.view, path);

@@ -27,6 +27,7 @@ typedef struct s_data
 {
 	option			option;
 	view			*view;
+	void			*arg;
 	pthread_mutex_t mut;
 	pthread_t		*threads;
 	int				found;
