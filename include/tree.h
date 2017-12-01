@@ -1,7 +1,6 @@
 #ifndef TREE_H_
 #define TREE_H_
 
-#include <stdlib.h>
 #include "main.h"
 #include "math.h"
 #include "list.h"
@@ -42,6 +41,7 @@ enum
 typedef struct s_node
 {
 	struct s_node	*leafs;
+	struct s_node	*root;
 	int				nbr_step;
 	int				status;
 }	node;
@@ -52,7 +52,7 @@ typedef struct s_node
 */
 typedef struct s_node_ext
 {
-	node			*base;
+	node			*node;
 	int				level;
 	complex			pos;
 }	node_ext;
@@ -61,7 +61,8 @@ typedef struct s_data_tree
 {
 	node *tree;
 	elem *list;
-	elem *list_pool; // a pool of node_ext waiting to be reused
 }	data_tree;
+
+err algo_tree(data *d);
 
 #endif /* TREE_H_ */

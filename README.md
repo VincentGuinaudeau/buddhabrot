@@ -22,7 +22,7 @@ To clean all the intermediate files, use `make clean`; To clean all files genera
 $ ./buddhabrot [OPTION]
 ```
 
-This will generate a file named `test.pgm` on the current active directory.
+This will generate a file named `out.pgm` on the current active directory.
 
 ### Options
 
@@ -31,6 +31,7 @@ This will generate a file named `test.pgm` on the current active directory.
  * `-s` Sample size : the number of point to find (default 200000)
  * `-m` Minimum : the minimum number of steps a point need to qualify(default 10)
  * `-M` Maximum : the maximum number of steps a point need to qualify(default 20)
+ * `-t`Thread : number of thread. 0 for auto (default)
 
 Example for a 4k image (width and height inverted to rotate the image afterward)
 

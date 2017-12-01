@@ -18,6 +18,7 @@ typedef struct s_option
 	int		sample_size;
 	int		min;
 	int		max;
+	int		thread_num;
 	double	scale;
 	double	x_offset;
 	double	y_offset;
@@ -32,7 +33,8 @@ typedef struct s_data
 	pthread_t		*threads;
 	int				found;
 	int				progress;
-	int				random_seed;
 } data;
+
+err launch_threads(data *d, void*(*func)(data*));
 
 #endif /* MAIN_H_ */

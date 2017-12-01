@@ -12,13 +12,16 @@ NAME	= buddhabrot
 
 SRC		= src/main.c \
 		  src/math.c \
-		  src/view.c
+		  src/view.c \
+		  src/list.c \
+		  src/random.c \
+		  src/tree.c
 
 OBJ		= $(SRC:.c=.o)
 
 CC		= clang
 
-CFLAGS	= -Iinclude/ -Wall -Wextra -g3
+CFLAGS	= -Iinclude/ -Wall -Wextra -O3
 
 LDFLAGS = -lpthread
 
