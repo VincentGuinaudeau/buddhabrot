@@ -26,66 +26,105 @@ void move_down(complex *c, int move, int level)
 	c->i += step * (IS_LEFT(move) ? -1 : 1);
 }
 
-int compute_node_rec(data *d, node *n, complex *c, int level, int remaining)
+/*
+** determine if a node need further exploration.
+** If it does not, the function return 0.
+** If it does, the function return the number of levels
+** you can explore before calling it again.
+*/
+int is_node_converging(node *n)
+{
+	int min = n->nbr_step;
+	int max = n->nbr_step;
+	int steps = SIMILARE_LEVEL_TO_COMPLETE;
+
+	while (steps && n->root != NULL)
+	{
+		n = n->root;
+		if (min > n->nbr_step)
+			min = n->nbr_step;
+		if (max < n->nbr_step)
+			max = n->nbr_step;
+		if (max - min > 1)
+			return steps;
+		--steps;
+	}
+	return steps;
+}
+
+/*
+** compute the node.
+** if remaining > 0, we allocate and compute the childrens.
+** if next_check == 0, we call is_node_converging
+**   to test if the node can be closed
+*/
+err compute_node(data *d,
+                 node *n,
+                 complex *c,
+                 elem *open_list,
+                 int level,
+                 int remaining,
+                 int next_check)
 {
 	complex buff;
-	int reduce;
-	int value;
 
 	n->leafs = NULL;
 	n->nbr_step = number_of_step_to_escape(c, d->option.max);
 	n->status = NODE_NO_STATUS;
 
-	//printf("level:%d\tx:%lf\ty:%lf\tstep:%d\n", level, c->r, c->i, n->nbr_step);
-
-	reduce = n->nbr_step;
-
-	if (remaining)
+	// check if the node can be closed
+	if (next_check == 0)
 	{
+		next_check = is_node_converging(n);
+		if (next_check == 0)
+		{
+			// we close and stop the function here
+			ADD_STATUS(n, NODE_COMPLETED);
+			return (OK);
+		}
+	}
+
+	if (remaining) // if remaining is still positive
+	{
+		// we continue the exploration
 		n->leafs = malloc(sizeof(node) * 4);
 		if (n->leafs == NULL)
-		{
-			return -1;
-		}
+			return (KO);
 		for (int i = 0; i < 4; i++)
 		{
 			buff.r = c->r;
 			buff.i = c->i;
 			move_down(&buff, i, level + 1);
-			value = compute_node_rec(d,
-			                         n->leafs + i,
-			                         &buff,
-			                         level + 1,
-			                         remaining - 1);
-			if (reduce != value)
-			{
-				reduce = -2;
-			}
+			if (compute_node(d,
+			                 n->leafs + i,
+			                 &buff,
+			                 open_list,
+			                 level + 1,
+			                 remaining - 1,
+			                 next_check) == KO)
+				return (KO);
 		}
 	}
-	return (reduce);
-}
-
-/*
-** compute the node and some of it's children.
-** if the node and all the children it compute have the same nbr_step,
-** all of the children are freed and the node is marked closed
-*/
-int compute_node(data *d, node *n, complex *c, int level, int remaining)
-{
-	int result = compute_node_rec(d, n, c, level, remaining);
-	if (level > 1000)
+	else
 	{
-		result = -2;
+		// else, we add this node in the open_list
+		node_ext *ext;
+		ext = malloc(sizeof(node_ext));
+		if (ext == NULL)
+			return (KO);
+		ext->node = n;
+		ext->level = level;
+		ext->next_check = next_check;
+		ext->pos = *c;
+		elem *new_open = create_new_elem(ext);
+		if (new_open == NULL)
+			return (KO);
+		if (open_list == NULL)
+			open_list = new_open;
+		else
+			insert_list_at_start(new_open, open_list);
 	}
-
-	if (result > -2)
-	{
-		printf("%02d level %d\n", result, level);
-		n->status = NODE_COMPLETED;
-		free_tree(n);
-	}
-	return (result);
+	return (OK);
 }
 
 /*
@@ -143,6 +182,7 @@ elem *list_open_node(data *d, node *n, complex *c, int level)
 err step_explore_tree(data *d)
 {
 	data_tree *dtree = d->arg;
+	bool keep_locked = false;
 
 	/*
 	** lock a node to compute. If there is no node,
@@ -165,6 +205,7 @@ err step_explore_tree(data *d)
 	if (dtree->list != NULL)
 	{
 		pthread_mutex_unlock(&d->mut);
+		keep_locked = true;
 	}
 
 	node_ext *ext = (node_ext*)open_node->data;
@@ -174,6 +215,7 @@ err step_explore_tree(data *d)
 	/*
 	** call compute_node
 	*/
+	elem *open_list;
 	int result = compute_node(
 		d,
 		ext->node,
@@ -182,21 +224,16 @@ err step_explore_tree(data *d)
 		SIMILARE_LEVEL_TO_COMPLETE);
 	if (result == -1)
 	{
+		if ()
 		return (KO);
 	}
 
 	/*
 	** insert new open node into the list
 	*/
-	elem *open_list;
-	open_list = list_open_node(
-		d,
-		ext->node,
-		&ext->pos,
-		ext->level);
 	if (open_list != NULL)
 	{
-		if (dtree->list != NULL)
+		if (dtree->list != NULL && !keep_locked)
 		{
 			pthread_mutex_lock(&d->mut);
 			insert_list_at_start(open_list, dtree->list);

@@ -29,10 +29,11 @@ enum
 #define HAS_STATUS(node, stat)    (node->status & stat)
 
 /*
-** number of level of exploration to do before considering
-** the square associated with the node contain a single value
+** number of level to consider to compute if
+** the node need further exploration
 */
 #define SIMILARE_LEVEL_TO_COMPLETE 3
+#define MAX_LEVEL_DOWN_PER_PASS 5
 
 /*
 ** The position of the node in the complex plane
@@ -41,7 +42,6 @@ enum
 typedef struct s_node
 {
 	struct s_node	*leafs;
-	struct s_node	*root;
 	int				nbr_step;
 	int				status;
 }	node;
@@ -54,6 +54,7 @@ typedef struct s_node_ext
 {
 	node			*node;
 	int				level;
+	int				next_check;
 	complex			pos;
 }	node_ext;
 
