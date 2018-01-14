@@ -13,16 +13,25 @@ enum
 	bot_left
 };
 
+typedef enum e_tree_step
+{
+	EXPLORATION,
+	RENDERING
+}	tree_step;
+
 #define IS_TOP(move)   (~move & 2)
 #define IS_BOT(move)    (move & 2)
 #define IS_LEFT(move)   (move & 1)
 #define IS_RIGHT(move) (~move & 1)
 
 // status
-#define NODE_NO_STATUS 0
-#define NODE_LOCKED    (1 << 0) // a thread is working on this node
-#define NODE_COMPLETED (1 << 1) // the node doesn't need further eploration
-#define NODE_USEFUL    (1 << 2) // some leafs of this node are useful
+#define NODE_NO_STATUS   0
+#define NODE_COMPLETED   (1 << 0) // the node doesn't need further eploration
+#define NODE_CLOSED      (1 << 1) // the algorithm as choose to no explore this node further
+#define NODE_USEFUL      (1 << 2) // some leafs of this node are useful
+#define NODE_BEHIND      (1 << 3) // this node is behind the range
+#define NODE_IN_RANGE    (1 << 4) // this node is in range
+#define NODE_OVER        (1 << 5) // this node is over the range
 
 #define ADD_STATUS(node, stat)    (node->status |= stat)
 #define REMOVE_STATUS(node, stat) (node->status &= ~stat)
@@ -32,8 +41,8 @@ enum
 ** number of level to consider to compute if
 ** the node need further exploration
 */
-#define SIMILARE_LEVEL_TO_COMPLETE 3
-#define MAX_LEVEL_DOWN_PER_PASS 5
+#define SIMILARE_LEVEL_TO_COMPLETE 4
+#define MAX_LEVEL_DOWN_PER_PASS 7
 
 /*
 ** The position of the node in the complex plane
@@ -42,8 +51,9 @@ enum
 typedef struct s_node
 {
 	struct s_node	*leafs;
-	int				nbr_step;
-	int				status;
+	struct s_node	*root;
+	short			nbr_step;
+	unsigned char	status;
 }	node;
 
 /*
@@ -53,15 +63,25 @@ typedef struct s_node
 typedef struct s_node_ext
 {
 	node			*node;
-	int				level;
-	int				next_check;
 	complex			pos;
+	unsigned short	level;
 }	node_ext;
+
+typedef struct s_tree_thread
+{
+	long			nodes;
+	long			nodes_in_range;
+	int				*buffer;
+}	tree_thread;
 
 typedef struct s_data_tree
 {
-	node *tree;
-	elem *list;
+	node			*tree;
+	elem			*list;
+	pthread_mutex_t mut; // read / write on the task list
+	tree_step		step; // current step
+	long			nodes;
+	long			nodes_in_range;
 }	data_tree;
 
 err algo_tree(data *d);

@@ -30,11 +30,14 @@ typedef struct s_data
 	view			*view;
 	void			*arg;
 	pthread_mutex_t mut;
+	int				sync_count;
+	pthread_mutex_t sync_mut;
 	pthread_t		*threads;
 	int				found;
 	int				progress;
 } data;
 
 err launch_threads(data *d, void*(*func)(data*));
+void threads_sync(data *d);
 
 #endif /* MAIN_H_ */

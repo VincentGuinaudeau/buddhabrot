@@ -93,6 +93,31 @@ err parse_args(option *option, int argc, char **argv)
 	return (OK);
 }
 
+/*
+** Wait for every threads to reach this function
+** If the thread is the last to call the function, return true.
+** Else, return false.
+*/
+void threads_sync(data *d)
+{
+	pthread_mutex_lock(&d->mut);
+	++d->sync_count;
+	if (d->sync_count == d->option.thread_num)
+	{
+		pthread_mutex_unlock(&d->mut);
+		pthread_mutex_unlock(&d->sync_mut);
+	}
+	else
+	{
+		pthread_mutex_unlock(&d->mut);
+		pthread_mutex_lock(&d->sync_mut);
+		pthread_mutex_lock(&d->mut);
+		--d->sync_count;
+		if (d->sync_count)
+			pthread_mutex_unlock(&d->sync_mut);
+		pthread_mutex_unlock(&d->mut);
+	}
+}
 
 err launch_threads(data *d, void*(*func)(data*))
 {
@@ -119,7 +144,10 @@ int main(int argc, char **argv)
 	data data;
 	data.found = 0;
 	data.progress = 0;
+	data.sync_count = 0;
 	pthread_mutex_init(&data.mut, NULL);
+	pthread_mutex_init(&data.sync_mut, NULL);
+	pthread_mutex_lock(&data.sync_mut);
 
 	if (parse_args(&(data.option), argc, argv) == KO)
 		return (EXIT_FAILURE);

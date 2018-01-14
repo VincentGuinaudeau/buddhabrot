@@ -100,7 +100,7 @@ void clean_view(view *view)
 	}
 }
 
-void prepare_point_for_view(view *view, int *buffer, complex *point)
+void prepare_point_for_view(view *view, int *buffer, complex *point, int max)
 {
 	complex walker = {point->r, point->i};
 	int x;
@@ -109,10 +109,10 @@ void prepare_point_for_view(view *view, int *buffer, complex *point)
 
 	while (distance_squared(walker.r - view->offset_x,
 	                        walker.i - view->offset_y)
-	    <= view->squared_radius
-	    && distance_squared(walker.r,
-	                        walker.i)
-	    <= 4)
+	       <= view->squared_radius
+	       && distance_squared(walker.r,
+	                           walker.i)
+	       <= 4)
 	{
 		x = (walker.r - view->offset_x) / view->step + view->x / 2;
 		y = (walker.i - view->offset_y) / view->step + view->y / 2;
@@ -120,6 +120,8 @@ void prepare_point_for_view(view *view, int *buffer, complex *point)
 		{
 			buffer[i] = y * view->x + x;
 			++i;
+			if (i > max)
+				return;
 		}
 		calc_step(&walker, point);
 	}
@@ -132,6 +134,7 @@ void add_computed_point_to_view(view *view, int *buffer)
 
 	while (buffer[i] != -1)
 	{
+		// view->data[buffer[i]] = 255;
 		++view->data[buffer[i]];
 		if (view->max_value < view->data[buffer[i]])
 			view->max_value = view->data[buffer[i]];

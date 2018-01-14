@@ -24,16 +24,16 @@ $ ./buddhabrot [OPTION]
 
 This will generate a file named `out.pgm` on the current active directory.
 
-### Options
+## Options
 
  * `-w` Width : the width of the image (default 1000)
  * `-h` Height : the height of the image (default 1000)
  * `-s` Sample size : the number of point to find (default 200000)
- * `-m` Minimum : the minimum number of steps a point need to qualify(default 10)
- * `-M` Maximum : the maximum number of steps a point need to qualify(default 20)
- * `-t`Thread : number of thread. 0 for auto (default)
+ * `-m` Minimum : the minimum number of steps a point need to qualify (default 10)
+ * `-M` Maximum : the maximum number of steps a point need to qualify (default 20)
+ * `-t` Thread : number of thread. 0 for auto (default)
 
-Example for a 4k image (width and height inverted to rotate the image afterward)
+Example for a hight resolution image (width and height inverted to rotate the image afterward)
 
 ```sh
 $ ./buddhabrot -w 4320 -h 7680 -s 2000000 -m 30 -M 100
@@ -41,14 +41,17 @@ $ ./buddhabrot -w 4320 -h 7680 -s 2000000 -m 30 -M 100
 
 ## Algorithm
 
-The program launch one thread per actual thread available on the computer.
+The program launch one thread per actual thread available on the computer (on auto).
 
 For now, the program look at random point until it find `-s` points that escape the circle of radius 2 between `-m` and `-M` steps.
 
-## Coming soon
+I'm working on another approch bsed on a tree exploration. This is should accelerate the render (~ 10x from my initial tests). However, this need a good algorithm to select where to explore and where not to in order to have a good visual without filling the RAM with useless data.
+
+## Roadmap
 
  * more parameters
- * render of a specific part
+ * render of a specific part (already built-in, but no exposded)
  * fasters algorithms (ideas welcome)
- * save and load of intermediate steps (useful to make several render with the same points)
+ * multi-os support
+ * save and load of intermediate steps (useful to make several render with the same points, or to put more work on a already computed step)
  * blending renders to generate those colorufull images (aka Nebulabrot).

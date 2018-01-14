@@ -6,7 +6,7 @@ void *thread_main_random(data *data)
 {
     complex c;
 	int nbr;
-	int *buffer = malloc(sizeof(int) * (data->option.max + 1));
+	int *buffer = malloc(sizeof(int) * (data->option.max + 2));
 	if (buffer == NULL)
 	{
 		printf("Can't allocate memory for a buffer. Abort thread.\n");
@@ -20,7 +20,7 @@ void *thread_main_random(data *data)
 		nbr = number_of_step_to_escape(&c, data->option.max);
 		if (nbr >= data->option.min && nbr <= data->option.max)
 		{
-			prepare_point_for_view(data->view, buffer, &c);
+			prepare_point_for_view(data->view, buffer, &c, data->option.max);
 			pthread_mutex_lock(&data->mut);
 				add_computed_point_to_view(data->view, buffer);
 				++data->found;

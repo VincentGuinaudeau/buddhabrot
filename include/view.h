@@ -33,7 +33,7 @@ void set_view_position(view *view, double scale, double x, double y);
 view *create_view(int x, int y);
 err write_view_to_disk(view *view, char *path);
 void clean_view(view *view);
-void prepare_point_for_view(view *view, int *buffer, complex *point);
+void prepare_point_for_view(view *view, int *buffer, complex *point, int max);
 void add_computed_point_to_view(view *view, int *buffer);
 void add_point_to_view(view *view, complex *point);
 
