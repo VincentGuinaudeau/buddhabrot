@@ -43,26 +43,14 @@ void insert_list(elem *list, elem *store)
 
 /*
 ** link two list together.
-** the link is made between the end od store and the start of list
+** the link is made between the end of first and the start of second
 */
-void insert_list_at_end(elem *list, elem *store)
+void link_list(elem *first, elem *second)
 {
-	GOTO_START(list);
-	GOTO_END(store);
-	store->next = list;
-	list->prev = store;
-}
-
-/*
-** link two list together.
-** the link is mad between the end of list and the start of store
-*/
-void insert_list_at_start(elem *list, elem *store)
-{
-	GOTO_START(store);
-	GOTO_END(list);
-	list->next = store;
-	store->prev = list;
+	GOTO_START(second);
+	GOTO_END(first);
+	first->next = second;
+	second->prev = first;
 }
 
 /*

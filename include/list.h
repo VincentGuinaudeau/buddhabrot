@@ -24,8 +24,7 @@ typedef struct s_elem
 elem *create_new_elem(void *data);
 elem *add_new_elem_to_list(elem *list, void *data);
 void insert_list(elem *list, elem *store);
-void insert_list_at_end(elem *list, elem *store);
-void insert_list_at_start(elem *list, elem *store);
+void link_list(elem *list, elem *store);
 elem *snap_list(elem *list);
 
 #endif /* LIST_H_ */

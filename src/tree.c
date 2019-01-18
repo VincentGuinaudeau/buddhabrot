@@ -1,7 +1,6 @@
 #include <stdlib.h>
 #include <math.h>
 #include <stdio.h>
-#include <string.h> // for debug
 #include "tree.h"
 
 /*
@@ -31,7 +30,7 @@ err insert_node_in_list(elem **open_list, node_ext *ext)
 	if (new_open == NULL)
 		return (KO);
 	if (*open_list != NULL)
-		insert_list_at_start(new_open, *open_list);
+		link_list(new_open, *open_list);
 	*open_list = new_open;
 	return (OK);
 }
@@ -84,18 +83,14 @@ void mark_node_useful(node *n)
 ** If it does, the function return the number of levels
 ** you can explore before calling it again.
 */
-int should_continue_exploration(data *d, node *n, short level)
+int should_continue_exploration(node *n, short level)
 {
 	int min = n->nbr_step;
 	int max = n->nbr_step;
 	int steps = SIMILARE_LEVEL_TO_COMPLETE;
 
-	// if (level > 18)
-	// 	return 0;
-	if (level > 13)
-	{
+	if (level > 23)
 		return (0);
-	}
 
 	while (steps && n->root != NULL)
 	{
@@ -112,24 +107,11 @@ int should_continue_exploration(data *d, node *n, short level)
 }
 
 /*
-** compute the node.
-** if remaining > 0, we allocate and compute the childrens.
-** if next_check == 0, we call should_continue_exploration
-**   to test if the node can be closed
+** apply the relevant status to the node
 */
-err explore_tree(data *d,
-                 tree_thread *tthread,
-                 elem **open_list, 
-                 node_ext *ext,
-                 int remaining)
+void qualify_node(data* d, node_ext *ext, int max_depth)
 {
-	node_ext buff;
-
-	ext->node->leafs = NULL;
-	ext->node->nbr_step = number_of_step_to_escape(&ext->pos, d->option.max);
 	ext->node->status = NODE_NO_STATUS;
-
-	++tthread->nodes;
 	if (ext->node->nbr_step < d->option.min)
 	{
 		ADD_STATUS(ext->node, NODE_BEHIND);
@@ -140,19 +122,47 @@ err explore_tree(data *d,
 	}
 	else
 	{
-		++tthread->nodes_in_range;
 		ADD_STATUS(ext->node, NODE_IN_RANGE);
 		mark_node_useful(ext->node);
 	}
 
-	// printf("%p l %d x %lf y %lf n %d s %d\n", ext->node, ext->level, ext->pos.r, ext->pos.i, ext->node->nbr_step, ext->node->status);
-
-	// check if the node can be closed
-	int next_check = should_continue_exploration(d, ext->node, ext->level);
-	if (next_check == 0)
+	int next_check = should_continue_exploration(ext->node, ext->level);
+	if (next_check == 0 || ext->level >= max_depth)
 	{
-		// we close and stop the function here
 		ADD_STATUS(ext->node, NODE_COMPLETED);
+	}
+}
+
+/*
+** compute the node.
+** if remaining > 0, we allocate and compute the childrens.
+** if next_check == 0, we call should_continue_exploration
+**   to test if the node can be closed
+*/
+err explore_tree(
+	data *d,
+	tree_thread *tthread,
+	elem **open_list, 
+	node_ext *ext,
+	int max_depth,
+	int remaining
+)
+{
+	node_ext buff;
+
+	ext->node->leafs = NULL;
+	ext->node->nbr_step = number_of_step_to_escape(&ext->pos, d->option.max);
+	qualify_node(d, ext, max_depth);
+
+	if (HAS_STATUS(ext->node, NODE_IN_RANGE))
+	{
+		++tthread->stat.nodes_in_range;
+		++tthread->stat.levels_count[ext->level];
+	}
+	++tthread->stat.nodes;
+
+	if (HAS_STATUS(ext->node, NODE_COMPLETED))
+	{
 		return (OK);
 	}
 
@@ -170,11 +180,14 @@ err explore_tree(data *d,
 			buff.pos.i = ext->pos.i;
 			buff.level = ext->level + 1;
 			move_down(&buff.pos, i, ext->level + 1);
-			if (explore_tree(d,
-			                 tthread,
-			                 open_list,
-			                 &buff,
-			                 remaining - 1) == KO)
+			if (explore_tree(
+				d,
+				tthread,
+				open_list,
+				&buff,
+				max_depth,
+				remaining - 1
+			) == KO)
 				return (KO);
 		}
 	}
@@ -190,16 +203,18 @@ err explore_tree(data *d,
 /*
 ** walk the tree and insert the relevant node into the view.
 */
-err render_tree(data *d,
-               tree_thread *tthread,
-               elem **open_list,
-               node_ext *ext,
-               int remaining)
+err render_tree(
+	data *d,
+	tree_thread *tthread,
+	elem **open_list,
+	node_ext *ext,
+	int max_depth,
+	int remaining
+)
 {
 	node_ext buff;
-	// printf("%p l %d x %lf y %lf n %d s %d %d\n", ext->node, ext->level, ext->pos.r, ext->pos.i, ext->node->nbr_step, ext->node->status, HAS_STATUS(ext->node, NODE_USEFUL));
-	// if (!HAS_STATUS(ext->node, NODE_USEFUL))
-	// 	return (OK);
+	if (!HAS_STATUS(ext->node, NODE_USEFUL))
+		return (OK);
 	if (remaining)
 	{
 		if (!HAS_STATUS(ext->node, NODE_COMPLETED))
@@ -211,13 +226,19 @@ err render_tree(data *d,
 				buff.pos.i = ext->pos.i;
 				buff.level = ext->level + 1;
 				move_down(&buff.pos, i, ext->level + 1);
-				render_tree(d, tthread, open_list, &buff, remaining - 1);
+				render_tree(
+					d,
+					tthread,
+					open_list,
+					&buff,
+					max_depth,
+					remaining - 1
+				);
 			}
 		}
-		if (HAS_STATUS(ext->node, NODE_IN_RANGE))
+		if (HAS_STATUS(ext->node, NODE_IN_RANGE) && ext->level == max_depth)
 		{
 			prepare_point_for_view(d->view, tthread->buffer, &ext->pos, d->option.max);
-			// tthread->buffer[1] = -1;
 			pthread_mutex_lock(&d->mut);
 			add_computed_point_to_view(d->view, tthread->buffer);
 			pthread_mutex_unlock(&d->mut);
@@ -232,17 +253,23 @@ err render_tree(data *d,
 }
 
 /*
-** explore down from node for MAX_LEVEL_DOWN_PER_PASS levels.
-** may close the node if the conditions are met.
-** If there is no node left to explore, we 
+** compute a node from the list recursivly,
+** going at most MAX_LEVEL_DOWN_PER_PASS levels deeper.
+** If there is no node left to explore, return KO
+** OK if the function as done a complete cycle.
 */
-err step_explore_tree(data *d,
-                      tree_thread *tthread,
-                      err(*func)(data*,
-                                 tree_thread*,
-                                 elem**,
-                                 node_ext*,
-                                 int))
+err step_compute_tree(
+	data *d,
+	tree_thread *tthread,
+	err(*func)(
+		data*,
+		tree_thread*,
+		elem**,
+		node_ext*,
+		int,
+		int
+	)
+)
 {
 	data_tree *dtree = d->arg;
 	bool keep_locked = false;
@@ -252,6 +279,7 @@ err step_explore_tree(data *d,
 	** this mean we can go to the render step.
 	*/
 	pthread_mutex_lock(&dtree->mut);
+	int max_depth = dtree->depth_target;
 	if (dtree->list == NULL)
 	{
 		pthread_mutex_unlock(&dtree->mut);
@@ -262,7 +290,8 @@ err step_explore_tree(data *d,
 	dtree->list = snap_list(dtree->list);
 
 	// if the new list is empty, we keep the mutex locked
-	// so that the other thread have to wait.
+	// so that the other thread have to wait this thread,
+	// as it may add new elements when it's done.
 	if (dtree->list != NULL)
 		pthread_mutex_unlock(&dtree->mut);
 	else
@@ -280,28 +309,30 @@ err step_explore_tree(data *d,
 		tthread,
 		&open_list,
 		ext,
-		MAX_LEVEL_DOWN_PER_PASS);
+		max_depth,
+		MAX_LEVEL_DOWN_PER_PASS
+	);
 	free(ext);
 	if (result == KO)
 		return (KO);
 
 	/*
-	** insert new open node into the list
-	** and lock / unlock the mutex if necessary
+	** insert new open node into the list,
+	** sync stat and update depth objective.
 	*/
+	if (!keep_locked)
+		pthread_mutex_lock(&dtree->mut);
 	if (open_list != NULL)
 	{
-		if (!keep_locked)
-			pthread_mutex_lock(&dtree->mut);
 		if (dtree->list != NULL)
-			insert_list_at_start(open_list, dtree->list);
-		dtree->list = open_list;
-		pthread_mutex_unlock(&dtree->mut);
+			link_list(dtree->list, open_list);
+		else
+			dtree->list = open_list;
 	}
-	else if (keep_locked)
-	{
-		pthread_mutex_unlock(&dtree->mut);
-	}
+	thread_sync_stat(&tthread->stat, &dtree->stat);
+	if (dtree->step == EXPLORATION)
+		dtree->depth_target = compute_depth_target(d, &dtree->stat);
+	pthread_mutex_unlock(&dtree->mut);
 
 	return (OK);
 }
@@ -310,8 +341,8 @@ void *thread_main_tree(data *d)
 {
 	data_tree *dtree = d->arg;
 	tree_thread tthread;
-	tthread.nodes = 0;
-	tthread.nodes_in_range = 0;
+	if (init_tree_stat(&tthread.stat) == KO)
+		return ((void*)EXIT_FAILURE);
 	tthread.buffer = malloc(sizeof(int) * (d->option.max + 2));
 	if (tthread.buffer == NULL)
 	{
@@ -320,7 +351,7 @@ void *thread_main_tree(data *d)
 	}
 
 	// tree exploration
-	while (step_explore_tree(d, &tthread, &explore_tree) == OK);
+	while (step_compute_tree(d, &tthread, &explore_tree) == OK);
 
 	threads_sync(d);
 
@@ -329,32 +360,41 @@ void *thread_main_tree(data *d)
 	if (dtree->step != RENDERING)
 	{
 		dtree->step = RENDERING;
-		printf("%ld nodes calculated\n", dtree->nodes);
-		printf("%ld node useful\n", dtree->nodes_in_range);
-		printf("printing the tree\n");
-		dtree->nodes += tthread.nodes;
-		dtree->nodes_in_range += tthread.nodes_in_range;
+		printf("%ld nodes calculated\n", dtree->stat.nodes);
+		printf("%ld nodes useful\n", dtree->stat.nodes_in_range);
+		printf("nodes useful by level :\n");
+		int i = 0;
+		while (i < MAX_DEPTH)
+		{
+			if (dtree->stat.levels_count[i])
+				printf(" %3d - %d\n", i, dtree->stat.levels_count[i]);
+			++i;
+		}
+		printf("drawing the tree\n");
 		init_open_list(dtree);
 	}
 	pthread_mutex_unlock(&d->mut);
 
 	// tree rendering
-	while (step_explore_tree(d, &tthread, &render_tree) == OK);
+	while (step_compute_tree(d, &tthread, &render_tree) == OK);
 
 	free(tthread.buffer);
 
-	return (EXIT_SUCCESS);
+	return ((void*)EXIT_SUCCESS);
 }
 
 err algo_tree(data *d)
 {
-	// allocating the data for the tree algorithm
+	// allocating and initialising the data for the tree algorithm
 	data_tree dtree;
 	d->arg = &dtree;
-	dtree.nodes = 0;
-	dtree.nodes_in_range = 0;
+	dtree.stat.nodes = 0;
+	dtree.stat.nodes_in_range = 0;
+	if (init_tree_stat(&dtree.stat) == KO)
+		return (KO);
 	pthread_mutex_init(&dtree.mut, NULL);
 	dtree.step = EXPLORATION;
+	dtree.depth_target = MAX_DEPTH;
 
 	// creating the tree
 	dtree.tree = malloc(sizeof(node));
@@ -362,7 +402,8 @@ err algo_tree(data *d)
 		return (KO);
 	dtree.tree->leafs = NULL;
 	dtree.tree->root = NULL;
-	// we know the origin is on the mandelbrot set
+
+	// we know the root (0, 0) is in the mandelbrot set
 	dtree.tree->nbr_step = d->option.max + 1;
 	dtree.tree->status = NODE_OVER;
 

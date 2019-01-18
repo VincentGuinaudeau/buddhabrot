@@ -162,7 +162,7 @@ int main(int argc, char **argv)
 	// todo : option for path
 	char *path = "./out.pgm";
 
-	printf("allocating memory.\n");		
+	printf("allocating initial memory.\n");		
 	data.view = create_view(data.option.width, data.option.height);
 	// set_view_position(data.view, 1.5, -0.5, 0);
 	if (data.view == NULL)
@@ -172,9 +172,9 @@ int main(int argc, char **argv)
 	}
 
 	// calling the algorithm that populate the view
-	algo_random(&data);
-	// algo_tree(&data);
-
+	// algo_random(&data);
+	algo_tree(&data);
+ 
 	printf("writing to disk\n");
 	err res = write_view_to_disk(data.view, path);
 	if (res == KO)
