@@ -6,19 +6,49 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
+#include <math.h>
 #include "view.h"
+
+double sqrt(double x);
+double log(double x);
+double pow(double x, double y);
 
 double calc_squared_view_radius(double scale, int x, int y)
 {
-	double ratio;
+	double small_scale;
 
 	if (x > y)
-		ratio = (double)x / (double)y;
+		small_scale = scale * (double)y / (double)x;	
 	else
-		ratio = (double)y / (double)x;
+		small_scale = scale * (double)x / (double)y;
 
-	ratio *= scale;
-	return (scale * scale + ratio * ratio);
+	return (scale * scale + small_scale * small_scale);
+}
+
+void find_gamma_for_optimal_median(view *view)
+{
+	long i;
+	int *counters = calloc(sizeof(int), view->max_value + 1);
+
+	long data_size = view->x * view->y;
+	for (i = 0; i < data_size; i++)
+	{
+		counters[view->data[i]]++;
+	}
+
+	long median_point = (data_size - counters[0]) / 2;
+	long accumulator = 0;
+	for (i = 1; i <= view->max_value; i++)
+	{
+		accumulator += counters[i];
+		if (accumulator >= median_point)
+			break;
+	}
+
+	long median = i;
+
+	view->gamma = 1.0 / ((double)log((1.0 / (double)view->max_value) * median) / log(0.5));
+	view->gamma = sqrt(view->gamma);
 }
 
 void set_view_position(view *view, double scale, double x, double y)
@@ -48,16 +78,55 @@ view *create_view(int x, int y)
 	return new_view;
 }
 
+view *clone_view(view *source)
+{
+	view *new_view = create_view(source->x, source->y);
+	if (new_view == NULL)
+		return NULL;
+
+	new_view->scale          = source->scale;
+	new_view->squared_radius = source->squared_radius;
+	new_view->offset_x       = source->offset_x;
+	new_view->offset_y       = source->offset_y;
+	new_view->step           = source->step;
+	new_view->render_type    = source->render_type;
+	new_view->gamma          = source->gamma;
+	return new_view;
+}
+
+err merge_view(view *destination, view *source)
+{
+	if (destination->x * destination->y != source->x * source->y)
+		return KO;
+
+	long length = destination->x * destination->y;
+	for (int i = 0; i < length; i++)
+	{
+		destination->data[i] += source->data[i];
+		if (destination->max_value < destination->data[i])
+		{
+			destination->max_value = destination->data[i];
+		}
+	}
+	return OK;
+}
+
 err write_view_to_disk(view *view, char *path)
 {
 	unsigned char buffer[WRITE_BUFFER_SIZE];
 	const int max_pix = WRITE_BUFFER_SIZE / PIXEL_SIZE;
-	int fd = open(path, O_CREAT | O_RDWR);
+	int fd = open(path, O_CREAT | O_WRONLY, S_IRUSR | S_IWUSR);
 	int size = view->x * view->y - 1;
 	int progress = 0;
 	int buffer_index;
 	int buff;
-	int i;
+	long i;
+
+	if (view->gamma == -1)
+	{
+		find_gamma_for_optimal_median(view);
+		printf("automatic gamma : %lf\n", view->gamma);
+	}
 
 	if (fd == -1)
 		return KO;
@@ -65,7 +134,14 @@ err write_view_to_disk(view *view, char *path)
 	write(fd, buffer, strlen((char*)buffer));
 	for (i = 0; i <= size; i++)
 	{
-		buff = view->data[i] * PGM_MAX_VALUE / view->max_value;
+		if (view->gamma)
+		{
+			buff = PGM_MAX_VALUE * pow((double)view->data[i] / (double)view->max_value, view->gamma);
+		}
+		else
+		{
+			buff = view->data[i] * PGM_MAX_VALUE / view->max_value;
+		}
 		buffer_index = (i % max_pix) * PIXEL_SIZE;
 		#if PIXEL_SIZE >= 1
 			buffer[buffer_index] = buff >> 8;
@@ -84,6 +160,10 @@ err write_view_to_disk(view *view, char *path)
 			printf("\r%d.%d%d%%", progress / 100, progress / 10 % 10, progress % 10);
 			fflush(stdout);
 		}
+	}
+	if ((i + 1) % max_pix != 0)
+	{
+		write(fd, buffer, i % max_pix * PIXEL_SIZE);
 	}
 	printf("\n");
 	close(fd);
@@ -109,10 +189,7 @@ void prepare_point_for_view(view *view, int *buffer, complex *point, int max)
 
 	while (distance_squared(walker.r - view->offset_x,
 	                        walker.i - view->offset_y)
-	       <= view->squared_radius
-	       && distance_squared(walker.r,
-	                           walker.i)
-	       <= 4)
+	       <= view->squared_radius)
 	{
 		x = (walker.r - view->offset_x) / view->step + view->x / 2;
 		y = (walker.i - view->offset_y) / view->step + view->y / 2;
@@ -120,6 +197,7 @@ void prepare_point_for_view(view *view, int *buffer, complex *point, int max)
 		{
 			buffer[i] = y * view->x + x;
 			++i;
+			break;
 			if (i > max)
 				return;
 		}
@@ -151,10 +229,7 @@ void add_point_to_view(view *view, complex *point)
 
 	while (distance_squared(walker.r - view->offset_x,
 	                        walker.i - view->offset_y)
-	    <= view->squared_radius
-	    && distance_squared(walker.r,
-	                        walker.i)
-	    <= 4)
+	    <= view->squared_radius)
 	{
 		x = (walker.r - view->offset_x) / view->step + view->x / 2;
 		y = (walker.i - view->offset_y) / view->step + view->y / 2;
@@ -166,5 +241,45 @@ void add_point_to_view(view *view, complex *point)
 				view->max_value = view->data[index];
 		}
 		calc_step(&walker, point);
+	}
+}
+
+inline void add_to_view(view *view, int x, int y, int value)
+{
+	int index = y * view->x + x;
+	view->data[index] += value;
+	if (view->max_value < view->data[index])
+		view->max_value = view->data[index];
+}
+
+void add_trace_to_view(view *view, trace *trace)
+{
+	int x, y, i;
+
+	switch (view->render_type)
+	{
+		case binary:
+			x = (trace->points[0].r - view->offset_x) / view->step + view->x / 2;
+			y = (trace->points[0].i - view->offset_y) / view->step + view->y / 2;
+			if (x >= 0 && x < view->x && y >= 0 && y < view->y)
+				add_to_view(view, x, y, 1);
+		break;
+
+		case layered:
+			x = (trace->points[0].r - view->offset_x) / view->step + view->x / 2;
+			y = (trace->points[0].i - view->offset_y) / view->step + view->y / 2;
+			if (x >= 0 && x < view->x && y >= 0 && y < view->y)
+				add_to_view(view, x, y, trace->length);
+		break;
+
+		case buddhabrot:
+			for (i = 0; i < trace->length; i++)
+			{
+				x = (trace->points[i].r - view->offset_x) / view->step + view->x / 2;
+				y = (trace->points[i].i - view->offset_y) / view->step + view->y / 2;
+				if (x >= 0 && x < view->x && y >= 0 && y < view->y)
+					add_to_view(view, x, y, 1);
+			}
+		break;
 	}
 }

@@ -2,46 +2,56 @@
 #include <stdlib.h>
 #include "main.h"
 
-void *thread_main_random(data *data)
+void *thread_main_random(data *d)
 {
-    complex c;
 	int nbr;
-	int *buffer = malloc(sizeof(int) * (data->option.max + 2));
-	if (buffer == NULL)
+	trace	*trace = malloc(sizeof(trace) + sizeof(complex) * (d->option.max + 2));
+
+	pthread_mutex_lock(&d->mut);
+	view	*view = clone_view(d->view);
+	pthread_mutex_unlock(&d->mut);
+	if (view == NULL || trace == NULL)
 	{
-		printf("Can't allocate memory for a buffer. Abort thread.\n");
+		printf("Can't allocate memory for the thread. Abort thread.\n");
 		return ((void*)EXIT_FAILURE);
 	}
 
-	while (data->found < data->option.sample_size)
+	while (d->found < d->option.sample_size)
 	{
-		c.r = (double)rand() / RAND_MAX * 4.0 - 2.0;
-		c.i = (double)rand() / RAND_MAX * 4.0 - 2.0;
-		nbr = number_of_step_to_escape(&c, data->option.max);
-		if (nbr >= data->option.min && nbr <= data->option.max)
+		trace->points[0].r = (double)rand() / RAND_MAX * 4.0 - 2.0;
+		trace->points[0].i = (double)rand() / RAND_MAX * 4.0 - 2.0;
+		compute_trace(trace, d->option.max);
+		if (
+			trace->length >= d->option.min &&
+			trace->length <= d->option.max
+		)
 		{
-			prepare_point_for_view(data->view, buffer, &c, data->option.max);
-			pthread_mutex_lock(&data->mut);
-				add_computed_point_to_view(data->view, buffer);
-				++data->found;
-				nbr = (long)data->found * 10000 / data->option.sample_size;
-				if (data->progress < nbr)
-				{
-					data->progress = nbr;
-					printf("\r%d.%d%d%%", data->progress / 100, data->progress / 10 % 10, data->progress % 10);
-					fflush(stdout);
-				}
-			pthread_mutex_unlock(&data->mut);
+			add_trace_to_view(view, trace);
+			++d->found;
+			nbr = (long)d->found * 10000 / d->option.sample_size;
+			if (d->progress < nbr)
+			{
+				d->progress = nbr;
+				printf("\r%d.%d%d%%", d->progress / 100, d->progress / 10 % 10, d->progress % 10);
+				fflush(stdout);
+			}
 		}
 	}
-	free(buffer);
+
+	pthread_mutex_lock(&d->mut);
+	merge_view(d->view, view);
+	pthread_mutex_unlock(&d->mut);
+
+	free(view);
+	free(trace);
+
 	return (EXIT_SUCCESS);
 }
 
 err algo_random(data *d)
 {
 	printf("retreiving points.\n");
-	printf("sample size : %d points.\n", d->option.sample_size);
+	printf("sample size : %ld points.\n", d->option.sample_size);
 	printf("precision of random : %d discret values betwen -2 and 2.\n", RAND_MAX);
 
 	srand(time(NULL));

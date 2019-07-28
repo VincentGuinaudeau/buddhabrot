@@ -32,6 +32,13 @@ This will generate a file named `out.pgm` on the current active directory.
  * `-m` Minimum : the minimum number of steps a point need to qualify (default 10)
  * `-M` Maximum : the maximum number of steps a point need to qualify (default 20)
  * `-t` Thread : number of thread. 0 for auto (default)
+ * `-a` Algorithm : `scan`, `random` or `tree`.
+ * `-r` Renderer : `binary`, `layered` or `buddhabrot`
+ * `-x` X offset : the horizontal offset of the image in the complex plan.
+ * `-y` Y offset : the vertical offset of the image in the complex plan.
+ * `-z` Zoom : the interval of values coverded by the image. Lower to "zoom in". Default is 2.
+ * `-g` Gamma correction : set the gamma correction to apply when writting the image. Inferior to 1 is brighter, higher than 1 is darker. Set to `auto` to let the program anylase the image and come up with it own value. Default is `off`.
+
 
 Example for a hight resolution image (width and height inverted to rotate the image afterward)
 

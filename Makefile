@@ -16,6 +16,7 @@ SRC		= src/main.c \
 		  src/list.c \
 		  src/random.c \
 		  src/tree.c \
+		  src/scan.c \
 		  src/tree_stat.c
 
 OBJ		= $(SRC:.c=.o)
@@ -23,9 +24,9 @@ OBJ		= $(SRC:.c=.o)
 CC		= clang
 
 CFLAGS	= -Iinclude/ -Wall -Wextra -O3
-# CFLAGS	= -Iinclude/ -Wall -Wextra -O0 -g3 -pg -rdynamic
+# CFLAGS	= -Iinclude/ -Wall -Wextra -O0 -g3 -pg
 
-LDFLAGS = -lpthread
+LDFLAGS = -lpthread -lm
 
 RM		= rm -f
 

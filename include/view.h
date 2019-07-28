@@ -1,17 +1,26 @@
 #ifndef VIEW_H_
 #define VIEW_H_
 
+
+typedef enum e_render_type {
+	binary,
+	layered,
+	buddhabrot
+} render_type;
+
 typedef struct s_view
 {
-	int		x;
-	int		y;
-	double	scale;
-	double	offset_x;
-	double	offset_y;
-	double	squared_radius;
-	double	step;
-	int		max_value;
-	int		data[];
+	int			x;
+	int			y;
+	double		scale;
+	double		offset_x;
+	double		offset_y;
+	double		squared_radius;
+	double		step;
+	double		gamma;
+	render_type render_type;
+	int			max_value;
+	int			data[];
 }	view;
 
 #include "main.h"
@@ -31,10 +40,13 @@ typedef struct s_view
 
 void set_view_position(view *view, double scale, double x, double y);
 view *create_view(int x, int y);
+view *clone_view(view *source);
+err merge_view(view *destination, view *source);
 err write_view_to_disk(view *view, char *path);
 void clean_view(view *view);
 void prepare_point_for_view(view *view, int *buffer, complex *point, int max);
 void add_computed_point_to_view(view *view, int *buffer);
 void add_point_to_view(view *view, complex *point);
+void add_trace_to_view(view *view, trace *trace);
 
 #endif /* VIEW_H_ */

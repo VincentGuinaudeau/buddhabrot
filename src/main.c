@@ -7,9 +7,10 @@
 #include <pthread.h>
 #include <sys/sysinfo.h>
 
-#include "tree.h"
 #include "main.h"
 #include "random.h"
+#include "tree.h"
+#include "scan.h"
 
 void init_option(option *option)
 {
@@ -19,9 +20,12 @@ void init_option(option *option)
 	option->min = 10;
 	option->max = 20;
 	option->thread_num = 0;
-	option->scale = 4;
+	option->algo = al_rand;
+	option->r_type = buddhabrot;
+	option->scale = 2;
 	option->x_offset = 0;
 	option->y_offset = 0;
+	option->gamma = 0;
 }
 
 void default_option(option *option)
@@ -38,18 +42,82 @@ void default_option(option *option)
 		option->max = 20;
 }
 
-err parse_number(char* str, int *number, int min)
+err long_parse_number(char *str, long *number, int min)
+{
+	char	*end;
+	long	nbr;
+
+	if (*str == '\0')
+		return KO;
+	nbr = (int)strtol(str, &end, 0);
+	if (*end != '\0' || nbr < min)
+		return KO;
+	*number = nbr;
+	return OK;
+}
+
+err parse_number(char *str, int *number, int min)
 {
 	char	*end;
 	int		nbr;
 
-	if (*str == '\0')
-		return (KO);
+	if (str == NULL || *str == '\0')
+		return KO;
 	nbr = (int)strtol(str, &end, 0);
 	if (*end != '\0' || nbr < min)
-		return (KO);
+		return KO;
 	*number = nbr;
-	return (OK);
+	return OK;
+}
+
+err parse_double(char *str, double *number)
+{
+	char	*end;
+	double	nbr;
+
+	printf("parsing str as double : \"%s\"\n", str);
+
+	if (str == NULL || *str == '\0')
+		return KO;
+	nbr = strtod(str, &end);
+	if (*end != '\0')
+		return KO;
+	*number = nbr;
+	return OK;
+}
+
+err parse_algo(char *str, algo *algo)
+{
+	if (strcmp("random", str) == 0)
+	{
+		*algo = al_rand;
+	}
+	else if (strcmp("tree", str) == 0)
+	{
+		*algo = al_tree;
+	}
+	else if (strcmp("scan", str) == 0)
+	{
+		*algo = al_scan;
+	}
+	return OK;
+}
+
+err parse_render(char *str, render_type *render_type)
+{	
+	if (strcmp("binary", str) == 0)
+	{
+		*render_type = binary;
+	}
+	else if (strcmp("layered", str) == 0)
+	{
+		*render_type = layered;
+	}
+	else if (strcmp("buddhabrot", str) == 0)
+	{
+		*render_type = buddhabrot;
+	}
+	return OK;
 }
 
 err parse_args(option *option, int argc, char **argv)
@@ -57,7 +125,7 @@ err parse_args(option *option, int argc, char **argv)
 	int opt;
 	err err;
 	init_option(option);
-	while ((opt = getopt(argc, argv, "w:h:s:m:M:t:")) != -1)
+	while ((opt = getopt(argc, argv, "w:h:s:m:M:t:a:r:x:y:z:g:")) != -1)
 	{
 		switch (opt)
 		{
@@ -68,10 +136,10 @@ err parse_args(option *option, int argc, char **argv)
 				err = parse_number(optarg, &option->height, 1);
 				break;
 			case 's':
-				err = parse_number(optarg, &option->sample_size, 1);
+				err = long_parse_number(optarg, &option->sample_size, 1);
 				break;
 			case 'm':
-				err = parse_number(optarg, &option->min, 1);
+				err = parse_number(optarg, &option->min, 0);
 				break;
 			case 'M':
 				err = parse_number(optarg, &option->max, 1);
@@ -79,8 +147,38 @@ err parse_args(option *option, int argc, char **argv)
 			case 't':
 				err = parse_number(optarg, &option->thread_num, 0);
 				break;
+			case 'a':
+				err = parse_algo(optarg, &option->algo);
+				break;
+			case 'r':
+				err = parse_render(optarg, &option->r_type);
+				break;
+			case 'x':
+				err = parse_double(optarg, &option->x_offset);
+				break;
+			case 'y':
+				err = parse_double(optarg, &option->y_offset);
+				option->y_offset = -option->y_offset;
+				break;
+			case 'z':
+				err = parse_double(optarg, &option->scale);
+				break;
+			case 'g':
+				if (strcmp(optarg, "off") == 0)
+				{
+					option->gamma = 0;
+				}
+				else if (strcmp(optarg, "auto") == 0)
+				{
+					option->gamma = -1;
+				}
+				else
+				{
+					err = parse_double(optarg, &option->gamma);
+				}
+				break;
 			default: /* '?' */
-				fprintf(stderr, "Usage: %s [-w nbr] [-h nbr] [-s nbr] [-m nbr] [-M nbr] [-t nbr]\n", argv[0]);
+				fprintf(stderr, "Usage: %s [-a random|tree|scan] [-w nbr] [-h nbr] [-s nbr] [-m nbr] [-M nbr] [-t nbr]\n", argv[0]);
 				return (KO);
 		}
 		if (err == KO)
@@ -162,18 +260,33 @@ int main(int argc, char **argv)
 	// todo : option for path
 	char *path = "./out.pgm";
 
-	printf("allocating initial memory.\n");		
 	data.view = create_view(data.option.width, data.option.height);
-	// set_view_position(data.view, 1.5, -0.5, 0);
+	set_view_position(data.view, data.option.scale, data.option.x_offset, data.option.y_offset);
 	if (data.view == NULL)
 	{
 		printf("Can't allocate memory for the view. Abort\n");
 		return (EXIT_FAILURE);
 	}
+	data.view->render_type = data.option.r_type;
+	data.view->gamma = data.option.gamma;
+
+	printf("gamma value : %lf\n", data.option.gamma);
 
 	// calling the algorithm that populate the view
-	// algo_random(&data);
-	algo_tree(&data);
+	switch (data.option.algo)
+	{
+		case al_rand:
+			algo_random(&data);
+			break;
+
+		case al_tree:
+			algo_tree(&data);
+			break;
+
+		case al_scan:
+			algo_scan(&data);
+			break;
+	}
  
 	printf("writing to disk\n");
 	err res = write_view_to_disk(data.view, path);

@@ -31,3 +31,29 @@ int number_of_step_to_escape(complex *point, int max)
 	}
 	return i;
 }
+
+
+void compute_trace(trace *trace, int max)
+{
+	trace->length = 0;
+
+	while (
+		distance_squared(
+			trace->points[trace->length].r,
+			trace->points[trace->length].i
+		) <= 4 &&
+		trace->length <= max
+	)
+	{
+		// compute the next point
+		trace->points[trace->length + 1].r =
+			trace->points[trace->length].r * trace->points[trace->length].r -
+			trace->points[trace->length].i * trace->points[trace->length].i +
+			trace->points[0].r;
+		trace->points[trace->length + 1].i =
+			trace->points[trace->length].r *
+			trace->points[trace->length].i * 2 +
+			trace->points[0].i;
+		trace->length++;
+	}
+}
