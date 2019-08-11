@@ -1,6 +1,7 @@
 #ifndef VIEW_H_
 #define VIEW_H_
 
+#include "definitions.h"
 
 typedef enum e_render_type {
 	binary,
@@ -13,8 +14,7 @@ typedef struct s_view
 	int			x;
 	int			y;
 	double		scale;
-	double		offset_x;
-	double		offset_y;
+	complex		offset;
 	double		squared_radius;
 	double		step;
 	double		gamma;
@@ -23,8 +23,7 @@ typedef struct s_view
 	int			data[];
 }	view;
 
-#include "main.h"
-#include "math.h"
+#include "fract.h"
 
 // use 255   to store optimaly each pixel in 1 octet
 // use 65535 to store optimaly each pixel in 2 octet
@@ -38,7 +37,7 @@ typedef struct s_view
 	#define PIXEL_SIZE 1
 #endif
 
-void set_view_position(view *view, double scale, double x, double y);
+void set_view_position(view *view, double scale, complex *offset);
 view *create_view(int x, int y);
 view *clone_view(view *source);
 err merge_view(view *destination, view *source);
@@ -47,6 +46,6 @@ void clean_view(view *view);
 void prepare_point_for_view(view *view, int *buffer, complex *point, int max);
 void add_computed_point_to_view(view *view, int *buffer);
 void add_point_to_view(view *view, complex *point);
-void add_trace_to_view(view *view, trace *trace);
+void add_trace_to_view(view *view, fract_params *f_params, trace *trace);
 
 #endif /* VIEW_H_ */

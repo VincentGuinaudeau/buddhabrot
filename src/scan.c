@@ -1,15 +1,15 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include "main.h"
+#include "fract.h"
 #define BATCH_SIZE 8192
-#define SUBSAMPLING 4
+#define SUBSAMPLING 1
 
 void *thread_main_scan(data *d)
 {
 	int     nbr;
 	long    point;
 	long    stop;
-	trace	*trace = malloc(sizeof(trace) + sizeof(complex) * (d->option.max + 2));
+	trace	*trace = malloc(sizeof(trace) + sizeof(complex) * (d->option.max + 3));
 
 	pthread_mutex_lock(&d->mut);
 	view	*view = clone_view(d->view);
@@ -40,21 +40,19 @@ void *thread_main_scan(data *d)
 		{
 			for (int j = 0; j < SUBSAMPLING * SUBSAMPLING; j++)
 			{
-				trace->points[0].r =
-					(i % view->x - view->x / 2) * view->step +
-					view->offset_x +
-					(j % SUBSAMPLING + 0.5) * substep;
-				trace->points[0].i =
-					(i / view->x - view->y / 2)* view->step +
-					view->offset_y +
-					(j % SUBSAMPLING / 0.5) * substep;
-				compute_trace(trace, d->option.max);
+				init_trace(
+					&d->option.f_params,
+					trace,
+					(i % view->x - view->x / 2) * view->step + view->offset.r + (j % SUBSAMPLING + 0.5) * substep,
+					(i / view->x - view->y / 2) * view->step + view->offset.i + (j % SUBSAMPLING / 0.5) * substep
+				);
+				compute_trace(&d->option.f_params, trace, d->option.max);
 				if (
 					trace->length >= d->option.min &&
 					trace->length <= d->option.max
 				)
 				{
-					add_trace_to_view(view, trace);
+					add_trace_to_view(view, &d->option.f_params, trace);
 				}
 				nbr = point * 10000 / d->option.sample_size;
 				if (d->progress < nbr)
@@ -81,10 +79,6 @@ err algo_scan(data *d)
 {
 	d->option.sample_size = d->view->x * d->view->y;
 	printf("number of points : %ld points.\n", d->option.sample_size);
-
-	printf("squared max radius : %lf\n", d->view->squared_radius);
-
-	printf("render type : %d\n", d->view->render_type);
 
 	// set_view_position(d->view, 0.25, -0.8, 0.2);
 

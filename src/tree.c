@@ -385,6 +385,9 @@ void *thread_main_tree(data *d)
 
 err algo_tree(data *d)
 {
+	printf("this algorithm is not in working state.\n");
+	return OK;
+
 	// allocating and initialising the data for the tree algorithm
 	data_tree dtree;
 	d->arg = &dtree;

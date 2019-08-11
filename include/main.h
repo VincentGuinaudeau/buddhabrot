@@ -1,37 +1,34 @@
 #ifndef MAIN_H_
 #define MAIN_H_
 
-typedef int err;
-enum {KO, OK};
-
-typedef int bool;
-enum {false, true};
+#include "definitions.h"
 
 typedef enum e_algo {
 	al_rand,
-	al_tree,
-	al_scan
+	al_scan,
+	al_tree
 } algo;
 
 #include <pthread.h>
 #include <string.h>
 
+#include "fract.h"
 #include "view.h"
 
 typedef struct s_option
 {
-	int			width;
-	int			height;
-	long		sample_size;
-	int			min;
-	int			max;
-	int			thread_num;
-	algo     	algo;
-	render_type	r_type;
-	double		scale;
-	double		x_offset;
-	double		y_offset;
-	double		gamma;
+	int				width;
+	int				height;
+	long			sample_size;
+	int				min;
+	int				max;
+	int				thread_num;
+	algo     		algo;
+	render_type		r_type;
+	double			scale;
+	complex			offset;
+	double			gamma;
+	fract_params	f_params;
 } option;
 
 typedef struct s_data

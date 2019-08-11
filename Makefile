@@ -11,17 +11,18 @@
 NAME	= buddhabrot
 
 SRC		= src/main.c \
-		  src/math.c \
-		  src/view.c \
-		  src/list.c \
-		  src/random.c \
-		  src/tree.c \
-		  src/scan.c \
-		  src/tree_stat.c
+          src/parser.c \
+          src/fract.c \
+          src/view.c \
+          src/list.c \
+          src/random.c \
+          src/tree.c \
+          src/scan.c \
+          src/tree_stat.c
 
 OBJ		= $(SRC:.c=.o)
 
-CC		= clang
+CC		= gcc
 
 CFLAGS	= -Iinclude/ -Wall -Wextra -O3
 # CFLAGS	= -Iinclude/ -Wall -Wextra -O0 -g3 -pg

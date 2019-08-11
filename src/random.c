@@ -5,7 +5,7 @@
 void *thread_main_random(data *d)
 {
 	int nbr;
-	trace	*trace = malloc(sizeof(trace) + sizeof(complex) * (d->option.max + 2));
+	trace	*trace = malloc(sizeof(trace) + sizeof(complex) * (d->option.max + 3));
 
 	pthread_mutex_lock(&d->mut);
 	view	*view = clone_view(d->view);
@@ -18,15 +18,22 @@ void *thread_main_random(data *d)
 
 	while (d->found < d->option.sample_size)
 	{
-		trace->points[0].r = (double)rand() / RAND_MAX * 4.0 - 2.0;
-		trace->points[0].i = (double)rand() / RAND_MAX * 4.0 - 2.0;
-		compute_trace(trace, d->option.max);
+		// trace->points[0].r = (double)rand() / RAND_MAX * 4.0 - 2.0;
+		// trace->points[0].i = (double)rand() / RAND_MAX * 4.0 - 2.0;
+
+		init_trace(
+			&d->option.f_params,
+			trace,
+			(double)rand() / RAND_MAX * 4.0 - 2.0,
+			(double)rand() / RAND_MAX * 4.0 - 2.0
+		);
+		compute_trace(&d->option.f_params, trace, d->option.max);
 		if (
 			trace->length >= d->option.min &&
 			trace->length <= d->option.max
 		)
 		{
-			add_trace_to_view(view, trace);
+			add_trace_to_view(view, &d->option.f_params, trace);
 			++d->found;
 			nbr = (long)d->found * 10000 / d->option.sample_size;
 			if (d->progress < nbr)

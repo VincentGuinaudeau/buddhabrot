@@ -1,21 +1,46 @@
 #include <unistd.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <errno.h>
-#include <string.h>
 #include <time.h>
 #include <pthread.h>
 #include <sys/sysinfo.h>
 
 #include "main.h"
+#include "parser.h"
 #include "random.h"
 #include "tree.h"
 #include "scan.h"
 
+char *usage =
+	"Usage: %s [OPTIONS]\n"
+	"OPTIONS :\n"
+	"\t-h : display this help and exit."
+	"\n--About the image--\n"
+	"\t-v binary|layered|buddhabrot : (View) The type of info to render. Default is buddhabrot.\n"
+	"\t-w NATURAL -h NATURAL : (Width, Height) The dimension of the final image. Default is 1024 for both.\n"
+	"\t-o COMPLEX : (Offset) where to center the render. Default is 0+0i.\n"
+	"\t-z DECIMAL : (Zoom) the slice of the complex plan to show. use smaller number to zoom in. Default is 2.\n"
+	"\t-g off|auto|DECIMAL : (Gamma) value for the gamma correction. off to skip, auto to let the program find a value. Default is off."
+	"\n--About the rendering\n"
+	"\t-a random|scan : (Algorithm) the algorithm used to find relevant points. Default is random.\n"
+	"\t-t NATURAL : (Threads) number of thread to launch, 0 for auto."
+	"\t-s NATURAL : (Sample) for random algorithm, the number of points to find. Default is 200.000 .\n"
+	"\t-m NATURAL -M NATURAL : (Minimum, Maxium) the range of steps a point must escape in dto be included in the render. Default is 10 and 20."
+	"\n--About the fractal\n"
+	"\t-F mandelbrot|julia : (Fractal) The kind of function to iterate on. Default is mandelbrot.\n"
+	"\t-p DECIMAL : (Power) The value for the power parameter. Default is 2.\n"
+	"\t-f COMPLEX : (Factor) The value for the factor parameter. Default is 1+0i.\n"
+	"\t-j COMPLEX : (Julia) The additionnal parameter needed for the Julia function. Default is 0+0i.\n"
+	"TYPES :\n"
+	"\tNATURAL : A positive integer number.\n"
+	"\tDECIMAL : A positive floating number.\n"
+	"\tCOMPLEX : A complex number.\n"
+	"";
+
 void init_option(option *option)
 {
-	option->width = 1000;
-	option->height = 1000;
+	option->width = 1024;
+	option->height = 1024;
 	option->sample_size = 200000;
 	option->min = 10;
 	option->max = 20;
@@ -23,109 +48,21 @@ void init_option(option *option)
 	option->algo = al_rand;
 	option->r_type = buddhabrot;
 	option->scale = 2;
-	option->x_offset = 0;
-	option->y_offset = 0;
+	option->offset = (complex){.r = 0, .i = 0};
 	option->gamma = 0;
-}
-
-void default_option(option *option)
-{
-	if (option->width == -1)
-		option->width = 1000;
-	if (option->height == -1)
-		option->height = 1000;
-	if (option->sample_size == -1)
-		option->sample_size = 200000;
-	if (option->min == -1)
-		option->min = 10;
-	if (option->max == -1)
-		option->max = 20;
-}
-
-err long_parse_number(char *str, long *number, int min)
-{
-	char	*end;
-	long	nbr;
-
-	if (*str == '\0')
-		return KO;
-	nbr = (int)strtol(str, &end, 0);
-	if (*end != '\0' || nbr < min)
-		return KO;
-	*number = nbr;
-	return OK;
-}
-
-err parse_number(char *str, int *number, int min)
-{
-	char	*end;
-	int		nbr;
-
-	if (str == NULL || *str == '\0')
-		return KO;
-	nbr = (int)strtol(str, &end, 0);
-	if (*end != '\0' || nbr < min)
-		return KO;
-	*number = nbr;
-	return OK;
-}
-
-err parse_double(char *str, double *number)
-{
-	char	*end;
-	double	nbr;
-
-	printf("parsing str as double : \"%s\"\n", str);
-
-	if (str == NULL || *str == '\0')
-		return KO;
-	nbr = strtod(str, &end);
-	if (*end != '\0')
-		return KO;
-	*number = nbr;
-	return OK;
-}
-
-err parse_algo(char *str, algo *algo)
-{
-	if (strcmp("random", str) == 0)
-	{
-		*algo = al_rand;
-	}
-	else if (strcmp("tree", str) == 0)
-	{
-		*algo = al_tree;
-	}
-	else if (strcmp("scan", str) == 0)
-	{
-		*algo = al_scan;
-	}
-	return OK;
-}
-
-err parse_render(char *str, render_type *render_type)
-{	
-	if (strcmp("binary", str) == 0)
-	{
-		*render_type = binary;
-	}
-	else if (strcmp("layered", str) == 0)
-	{
-		*render_type = layered;
-	}
-	else if (strcmp("buddhabrot", str) == 0)
-	{
-		*render_type = buddhabrot;
-	}
-	return OK;
+	option->f_params.power = 2;
+	option->f_params.type = mandelbrot;
+	option->f_params.point = (complex){.r = 0, .i = 0};
+	option->f_params.factor = (complex){.r = 1, .i = 0};
 }
 
 err parse_args(option *option, int argc, char **argv)
 {
 	int opt;
 	err err;
+
 	init_option(option);
-	while ((opt = getopt(argc, argv, "w:h:s:m:M:t:a:r:x:y:z:g:")) != -1)
+	while ((opt = getopt(argc, argv, "w:h:s:m:M:t:a:v:o:z:g:F:p:f:j:")) != -1)
 	{
 		switch (opt)
 		{
@@ -148,46 +85,63 @@ err parse_args(option *option, int argc, char **argv)
 				err = parse_number(optarg, &option->thread_num, 0);
 				break;
 			case 'a':
-				err = parse_algo(optarg, &option->algo);
+			{
+				char *algo_values[] = {"random", "scan", "tree"};
+				err = parse_enum(optarg, (int*)&option->algo, algo_values, 3);
+				break;	
+			}
+			case 'v':
+			{
+				char *render_values[] = {"binary", "layered", "buddhabrot"};
+				err = parse_enum(optarg, (int*)&option->r_type, render_values, 3);
 				break;
-			case 'r':
-				err = parse_render(optarg, &option->r_type);
-				break;
-			case 'x':
-				err = parse_double(optarg, &option->x_offset);
-				break;
-			case 'y':
-				err = parse_double(optarg, &option->y_offset);
-				option->y_offset = -option->y_offset;
+			}
+			case 'o':
+				err = parse_complex(optarg, &option->offset);
+				option->offset.i = -option->offset.i;
 				break;
 			case 'z':
 				err = parse_double(optarg, &option->scale);
 				break;
 			case 'g':
-				if (strcmp(optarg, "off") == 0)
-				{
-					option->gamma = 0;
-				}
-				else if (strcmp(optarg, "auto") == 0)
-				{
-					option->gamma = -1;
-				}
-				else
+			{
+				char *gamma_values[] = {"off", "auto"};
+				err = parse_enum(optarg, (int*)&option->gamma, gamma_values, 2);
+				if (err == KO)
 				{
 					err = parse_double(optarg, &option->gamma);
 				}
+				else if (option->gamma == 1)
+				{
+					option->gamma = -1;
+				}
+				break;
+			}
+			case 'F':
+			{
+				char *fractal_values[] = {"mandelbrot", "julia"};
+				err = parse_enum(optarg, (int*)&option->f_params.type, fractal_values, 2);
+				break;
+			}
+			case 'p':
+				err = parse_double(optarg, &option->f_params.power);
+				break;
+			case 'f':
+				err = parse_complex(optarg, &option->f_params.factor);
+				break;
+			case 'j':
+				err = parse_complex(optarg, &option->f_params.point);
 				break;
 			default: /* '?' */
-				fprintf(stderr, "Usage: %s [-a random|tree|scan] [-w nbr] [-h nbr] [-s nbr] [-m nbr] [-M nbr] [-t nbr]\n", argv[0]);
+				fprintf(stderr, usage, argv[0]);
 				return (KO);
 		}
 		if (err == KO)
 		{
-			fprintf(stderr, "option '%c' only accept a positive number\n", opt);
+			fprintf(stderr, "option '%c' is invalid\n", opt);
 			return (KO);
 		}
 	}
-	//default_option(option);
 	return (OK);
 }
 
@@ -261,7 +215,7 @@ int main(int argc, char **argv)
 	char *path = "./out.pgm";
 
 	data.view = create_view(data.option.width, data.option.height);
-	set_view_position(data.view, data.option.scale, data.option.x_offset, data.option.y_offset);
+	set_view_position(data.view, data.option.scale, &data.option.offset);
 	if (data.view == NULL)
 	{
 		printf("Can't allocate memory for the view. Abort\n");

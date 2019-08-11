@@ -51,11 +51,10 @@ void find_gamma_for_optimal_median(view *view)
 	view->gamma = sqrt(view->gamma);
 }
 
-void set_view_position(view *view, double scale, double x, double y)
+void set_view_position(view *view, double scale, complex *offset)
 {
 	view->scale = scale;
-	view->offset_x = x;
-	view->offset_y = y;
+	view->offset = *offset;
 	view->squared_radius = calc_squared_view_radius(scale, view->x, view->y);
 	view->step = (view->scale * 2) / (view->x < view->y ? view->x : view->y);
 }
@@ -86,8 +85,7 @@ view *clone_view(view *source)
 
 	new_view->scale          = source->scale;
 	new_view->squared_radius = source->squared_radius;
-	new_view->offset_x       = source->offset_x;
-	new_view->offset_y       = source->offset_y;
+	new_view->offset         = source->offset;
 	new_view->step           = source->step;
 	new_view->render_type    = source->render_type;
 	new_view->gamma          = source->gamma;
@@ -131,7 +129,11 @@ err write_view_to_disk(view *view, char *path)
 	if (fd == -1)
 		return KO;
 	sprintf((char*)buffer, "P5 %d %d %d\n", view->x, view->y, PGM_MAX_VALUE);
-	write(fd, buffer, strlen((char*)buffer));
+	if (write(fd, buffer, strlen((char*)buffer)) == -1)
+	{
+		printf("write failed.\n");
+		return KO;
+	}
 	for (i = 0; i <= size; i++)
 	{
 		if (view->gamma)
@@ -151,7 +153,11 @@ err write_view_to_disk(view *view, char *path)
 		#endif
 		if ((i + 1) % max_pix == 0)
 		{
-			write(fd, buffer, max_pix * PIXEL_SIZE);
+			if (write(fd, buffer, max_pix * PIXEL_SIZE) == -1)
+			{
+				printf("write failed.\n");
+				return KO;
+			}
 		}
 		buff = (long)i * 10000 / size;
 		if (progress < buff)
@@ -163,7 +169,11 @@ err write_view_to_disk(view *view, char *path)
 	}
 	if ((i + 1) % max_pix != 0)
 	{
-		write(fd, buffer, i % max_pix * PIXEL_SIZE);
+		if (write(fd, buffer, i % max_pix * PIXEL_SIZE) == -1)
+		{
+			printf("write failed.\n");
+			return KO;
+		}
 	}
 	printf("\n");
 	close(fd);
@@ -187,12 +197,12 @@ void prepare_point_for_view(view *view, int *buffer, complex *point, int max)
 	int y;
 	int i = 0;
 
-	while (distance_squared(walker.r - view->offset_x,
-	                        walker.i - view->offset_y)
+	while (distance_squared(walker.r - view->offset.r,
+	                        walker.i - view->offset.i)
 	       <= view->squared_radius)
 	{
-		x = (walker.r - view->offset_x) / view->step + view->x / 2;
-		y = (walker.i - view->offset_y) / view->step + view->y / 2;
+		x = (walker.r - view->offset.r) / view->step + view->x / 2;
+		y = (walker.i - view->offset.i) / view->step + view->y / 2;
 		if (x >= 0 && x < view->x && y >= 0 && y < view->y)
 		{
 			buffer[i] = y * view->x + x;
@@ -201,7 +211,7 @@ void prepare_point_for_view(view *view, int *buffer, complex *point, int max)
 			if (i > max)
 				return;
 		}
-		calc_step(&walker, point);
+		// calc_step(&walker, point);
 	}
 	buffer[i] = -1;
 }
@@ -227,12 +237,12 @@ void add_point_to_view(view *view, complex *point)
 	int y;
 	int index;
 
-	while (distance_squared(walker.r - view->offset_x,
-	                        walker.i - view->offset_y)
+	while (distance_squared(walker.r - view->offset.r,
+	                        walker.i - view->offset.i)
 	    <= view->squared_radius)
 	{
-		x = (walker.r - view->offset_x) / view->step + view->x / 2;
-		y = (walker.i - view->offset_y) / view->step + view->y / 2;
+		x = (walker.r - view->offset.r) / view->step + view->x / 2;
+		y = (walker.i - view->offset.i) / view->step + view->y / 2;
 		if (x >= 0 && x < view->x && y >= 0 && y < view->y)
 		{
 			index = y * view->x + x;
@@ -240,7 +250,7 @@ void add_point_to_view(view *view, complex *point)
 			if (view->max_value < view->data[index])
 				view->max_value = view->data[index];
 		}
-		calc_step(&walker, point);
+		// calc_step(&walker, point);
 	}
 }
 
@@ -252,33 +262,53 @@ inline void add_to_view(view *view, int x, int y, int value)
 		view->max_value = view->data[index];
 }
 
-void add_trace_to_view(view *view, trace *trace)
+inline bool insert_complex_in_view(view *view, complex *c, int value)
 {
-	int x, y, i;
+	int x = (c->r - view->offset.r) / view->step + view->x / 2;
+	int y = (c->i - view->offset.i) / view->step + view->y / 2;
+	if (x >= 0 && x < view->x && y >= 0 && y < view->y)
+	{
+		add_to_view(view, x, y, value);
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+void add_trace_to_view(view *view, fract_params *f_params, trace *trace)
+{
+	bool is_in_view = false;
+	int i;
 
 	switch (view->render_type)
 	{
 		case binary:
-			x = (trace->points[0].r - view->offset_x) / view->step + view->x / 2;
-			y = (trace->points[0].i - view->offset_y) / view->step + view->y / 2;
-			if (x >= 0 && x < view->x && y >= 0 && y < view->y)
-				add_to_view(view, x, y, 1);
+			insert_complex_in_view(view, trace->points, 1);
 		break;
 
 		case layered:
-			x = (trace->points[0].r - view->offset_x) / view->step + view->x / 2;
-			y = (trace->points[0].i - view->offset_y) / view->step + view->y / 2;
-			if (x >= 0 && x < view->x && y >= 0 && y < view->y)
-				add_to_view(view, x, y, trace->length);
+			insert_complex_in_view(view, trace->points, trace->length + 1);
 		break;
 
 		case buddhabrot:
-			for (i = 0; i < trace->length; i++)
+			for (i = 0; i <= trace->length; i++)
 			{
-				x = (trace->points[i].r - view->offset_x) / view->step + view->x / 2;
-				y = (trace->points[i].i - view->offset_y) / view->step + view->y / 2;
-				if (x >= 0 && x < view->x && y >= 0 && y < view->y)
-					add_to_view(view, x, y, 1);
+				is_in_view = insert_complex_in_view(view, trace->points + i, 1);
+			}
+			complex walker = trace->points[trace->length + 1];
+			// continuing the trace, to include points outside the circle
+			walker = trace->points[trace->length + 1];
+			while (is_in_view)
+			{
+				calc_step(f_params, trace, &walker, &walker);
+				is_in_view = insert_complex_in_view(view, &walker, 1);
+			}
+			for (i = 0; i < 2; i++)
+			{
+				calc_step(f_params, trace, &walker, &walker);
+				insert_complex_in_view(view, &walker, 1);
 			}
 		break;
 	}

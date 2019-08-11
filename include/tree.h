@@ -2,7 +2,7 @@
 #define TREE_H_
 
 #include "main.h"
-#include "math.h"
+#include "fract.h"
 #include "list.h"
 
 /*
