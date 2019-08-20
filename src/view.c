@@ -113,7 +113,7 @@ err write_view_to_disk(view *view, char *path)
 {
 	unsigned char buffer[WRITE_BUFFER_SIZE];
 	const int max_pix = WRITE_BUFFER_SIZE / PIXEL_SIZE;
-	int fd = open(path, O_CREAT | O_WRONLY, S_IRUSR | S_IWUSR);
+	int fd = open(path, O_CREAT | O_TRUNC | O_WRONLY, S_IRUSR | S_IWUSR);
 	int size = view->x * view->y - 1;
 	int progress = 0;
 	int buffer_index;
