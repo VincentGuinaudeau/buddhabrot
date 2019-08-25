@@ -46,6 +46,6 @@ void clean_view(view *view);
 void prepare_point_for_view(view *view, int *buffer, complex *point, int max);
 void add_computed_point_to_view(view *view, int *buffer);
 void add_point_to_view(view *view, complex *point);
-void add_trace_to_view(view *view, fract_params *f_params, trace *trace);
+int add_trace_to_view(view *view, fract_params *f_params, trace *trace);
 
 #endif /* VIEW_H_ */

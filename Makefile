@@ -19,7 +19,8 @@ SRC		= src/main.c \
           src/tree.c \
           src/scan.c \
           src/tree_stat.c \
-          src/mtwister.c
+          src/mtwister.c \
+          src/metro_hast.c
 
 OBJ		= $(SRC:.c=.o)
 

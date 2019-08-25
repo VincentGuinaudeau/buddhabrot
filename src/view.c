@@ -254,7 +254,7 @@ void add_point_to_view(view *view, complex *point)
 	}
 }
 
-inline void add_to_view(view *view, int x, int y, int value)
+void add_to_view(view *view, int x, int y, int value)
 {
 	int index = y * view->x + x;
 	view->data[index] += value;
@@ -262,7 +262,7 @@ inline void add_to_view(view *view, int x, int y, int value)
 		view->max_value = view->data[index];
 }
 
-inline bool insert_complex_in_view(view *view, complex *c, int value)
+bool insert_complex_in_view(view *view, complex *c, int value)
 {
 	int x = (c->r - view->offset.r) / view->step + view->x / 2;
 	int y = (c->i - view->offset.i) / view->step + view->y / 2;
@@ -277,25 +277,26 @@ inline bool insert_complex_in_view(view *view, complex *c, int value)
 	}
 }
 
-void add_trace_to_view(view *view, fract_params *f_params, trace *trace)
+int add_trace_to_view(view *view, fract_params *f_params, trace *trace)
 {
 	bool is_in_view = false;
+	int time_in_view = 0;
 	int i;
 
 	switch (view->render_type)
 	{
 		case binary:
-			insert_complex_in_view(view, trace->points, 1);
+			time_in_view = insert_complex_in_view(view, trace->points, 1);
 		break;
 
 		case layered:
-			insert_complex_in_view(view, trace->points, trace->length + 1);
+			time_in_view = insert_complex_in_view(view, trace->points, trace->length + 1);
 		break;
 
 		case buddhabrot:
 			for (i = 0; i <= trace->length; i++)
 			{
-				is_in_view = insert_complex_in_view(view, trace->points + i, 1);
+				time_in_view += is_in_view = insert_complex_in_view(view, trace->points + i, 1);
 			}
 			complex walker = trace->points[trace->length + 1];
 			// continuing the trace, to include points outside the circle
@@ -303,13 +304,14 @@ void add_trace_to_view(view *view, fract_params *f_params, trace *trace)
 			while (is_in_view)
 			{
 				calc_step(f_params, trace, &walker, &walker);
-				is_in_view = insert_complex_in_view(view, &walker, 1);
+				time_in_view += is_in_view = insert_complex_in_view(view, &walker, 1);
 			}
 			for (i = 0; i < 2; i++)
 			{
 				calc_step(f_params, trace, &walker, &walker);
-				insert_complex_in_view(view, &walker, 1);
+				time_in_view += insert_complex_in_view(view, &walker, 1);
 			}
 		break;
 	}
+	return time_in_view;
 }

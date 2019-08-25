@@ -57,6 +57,8 @@ buddhabrot
 # Images
 **.pgm
 **.png
+**.xcf
 
 # VScode project folder
 .vscode/**
+labo

@@ -11,7 +11,6 @@ static mt_rand global_mt_state;
 
 void *thread_main_random(data *d)
 {
-	int nbr;
 	trace	*trace = malloc(sizeof(trace) + sizeof(complex) * (d->option.max + 3));
 
 	pthread_mutex_lock(&d->mut);
@@ -28,6 +27,7 @@ void *thread_main_random(data *d)
 
 	while (d->found < d->option.sample_size)
 	{
+		d->tested++;
 		init_trace(
 			&d->option.f_params,
 			trace,
@@ -39,21 +39,17 @@ void *thread_main_random(data *d)
 				(double)rand() / RAND_MAX * 4.0 - 2.0
 			#endif
 		);
-		// printf("test : %lf %lf\n", );
+
 		compute_trace(&d->option.f_params, trace, d->option.max);
 		if (
 			trace->length >= d->option.min &&
 			trace->length <= d->option.max
 		)
 		{
-			add_trace_to_view(view, &d->option.f_params, trace);
-			++d->found;
-			nbr = (long)d->found * 10000 / d->option.sample_size;
-			if (d->progress < nbr)
+			if (add_trace_to_view(view, &d->option.f_params, trace) > 0)
 			{
-				d->progress = nbr;
-				printf("\r%d.%d%d%%", d->progress / 100, d->progress / 10 % 10, d->progress % 10);
-				fflush(stdout);
+				++d->found;
+				display_progress(d);
 			}
 		}
 	}
@@ -72,7 +68,6 @@ err algo_random(data *d)
 {
 	printf("retreiving points.\n");
 	printf("sample size : %ld points.\n", d->option.sample_size);
-	printf("precision of random : %d discret values betwen -2 and 2.\n", RAND_MAX);
 
 	#if USE_MTWISTER == 1
 		global_mt_state = mt_seed_rand(time(NULL));

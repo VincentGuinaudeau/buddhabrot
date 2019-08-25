@@ -10,6 +10,7 @@
 #include "random.h"
 #include "tree.h"
 #include "scan.h"
+#include "metro_hast.h"
 
 char *usage =
 	"Usage: %s [OPTIONS]\n"
@@ -86,8 +87,8 @@ err parse_args(option *option, int argc, char **argv)
 				break;
 			case 'a':
 			{
-				char *algo_values[] = {"random", "scan", "tree"};
-				err = parse_enum(optarg, (int*)&option->algo, algo_values, 3);
+				char *algo_values[] = {"random", "scan", "tree", "metrohast"};
+				err = parse_enum(optarg, (int*)&option->algo, algo_values, 4);
 				break;	
 			}
 			case 'v':
@@ -145,6 +146,18 @@ err parse_args(option *option, int argc, char **argv)
 	return (OK);
 }
 
+void display_progress(data *d)
+{
+	int nbr = (long)d->found * 10000 / d->option.sample_size;
+	if (d->progress < nbr)
+	{
+		d->progress = nbr;
+		// printf("\r%d.%d%d%%", d->progress / 100, d->progress / 10 % 10, d->progress % 10);
+		printf("\r%d.%d%d%% (tested : %ld / correct : %ld = %f)", d->progress / 100, d->progress / 10 % 10, d->progress % 10, d->tested, d->found, (float)d->tested / (float)d->found);
+		fflush(stdout);
+	}
+}
+
 /*
 ** Wait for every threads to reach this function
 ** If the thread is the last to call the function, return true.
@@ -194,6 +207,7 @@ err launch_threads(data *d, void*(*func)(data*))
 int main(int argc, char **argv)
 {
 	data data;
+	data.tested = 0;
 	data.found = 0;
 	data.progress = 0;
 	data.sync_count = 0;
@@ -227,31 +241,38 @@ int main(int argc, char **argv)
 	printf("gamma value : %lf\n", data.option.gamma);
 
 	// calling the algorithm that populate the view
+	err algo_ok = KO;
 	switch (data.option.algo)
 	{
 		case al_rand:
-			algo_random(&data);
-			break;
-
-		case al_tree:
-			algo_tree(&data);
+			algo_ok = algo_random(&data);
 			break;
 
 		case al_scan:
-			algo_scan(&data);
+			algo_ok = algo_scan(&data);
+			break;
+
+		case al_tree:
+			algo_ok = algo_tree(&data);
+			break;
+
+		case al_metro_hast:
+			algo_ok = algo_metro_hast(&data);
 			break;
 	}
- 
-	printf("writing to disk\n");
-	err res = write_view_to_disk(data.view, path);
-	if (res == KO)
+
+	if (algo_ok == OK)
 	{
-		printf("Can't open file '%s' : %s. Abort.\n", path, strerror(errno));
-		return (EXIT_FAILURE);
+		printf("writing to disk\n");
+		err res = write_view_to_disk(data.view, path);
+		if (res == KO)
+		{
+			printf("Can't open file '%s' : %s. Abort.\n", path, strerror(errno));
+			return (EXIT_FAILURE);
+		}
 	}
 	free(data.view);
 	free(data.threads);
 
-	printf("done\n");
 	return (EXIT_SUCCESS);
 }

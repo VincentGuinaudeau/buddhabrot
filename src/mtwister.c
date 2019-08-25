@@ -1,3 +1,8 @@
+/*
+ * Copied from https://github.com/ESultanik/mtwister/tree/ae3ace33db7db7b42a18e3d4eeb4b7dd3467b1ec
+ * Modified to fit the syntax style of the project.
+ */
+
 /* An implementation of the MT19937 Algorithm for the Mersenne Twister
  * by Evan Sultanik.  Based upon the pseudocode in: M. Matsumoto and
  * T. Nishimura, "Mersenne Twister: A 623-dimensionally
@@ -6,11 +11,6 @@
  * January pp.3-30 1998.
  *
  * http://www.sultanik.com/Mersenne_twister
- */
-
-/*
- * Copied from https://github.com/ESultanik/mtwister/tree/ae3ace33db7db7b42a18e3d4eeb4b7dd3467b1ec
- * Modified to fit the syntax style of the project.
  */
 
 #define UPPER_MASK		0x80000000

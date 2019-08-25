@@ -6,7 +6,8 @@
 typedef enum e_algo {
 	al_rand,
 	al_scan,
-	al_tree
+	al_tree,
+	al_metro_hast
 } algo;
 
 #include <pthread.h>
@@ -40,10 +41,12 @@ typedef struct s_data
 	long			sync_count;
 	pthread_mutex_t sync_mut;
 	pthread_t		*threads;
-	int				found;
+	long			tested;
+	long			found;
 	int				progress;
 } data;
 
+void display_progress(data *d);
 err launch_threads(data *d, void*(*func)(data*));
 void threads_sync(data *d);
 
